@@ -1,0 +1,134 @@
+root_params:
+  seed: 42
+  log_dir: ???
+  device: cuda
+  data_dir: data
+  eval_do_lowercase: true
+
+lm:
+  dir_data: data/text/librispeech
+  block_size: 512
+
+tokenizer:
+  start_token: '▁'
+  blank_idx: 1024
+
+kenlm:
+  ngram: 4
+  model: ${root_params.data_dir}/kenlm/${kenlm.ngram}_ngram_output.bin
+  train_file: ${root_params.data_dir}/text/ngram/train.txt
+  kenlm_bin_path: kenlm/build/bin
+  do_lowercase: true
+  remove_temp_files: false
+  offset: 100
+
+gpt2:
+  model_name: gpt2-medium
+  dir_model: ${root_params.data_dir}/gpt2
+  output_dir: ${root_params.data_dir}/gpt2_train
+  per_device_train_batch_size: 32
+  per_device_eval_batch_size: 2
+  evaluation_strategy: epoch
+  save_strategy: epoch
+  save_total_limit: 4
+  logging_steps: 100
+  gradient_accumulation_steps: 1
+  num_train_epochs: 10
+  weight_decay: 0.0
+  warmup_steps: 1000
+  lr_scheduler_type: cosine
+  learning_rate: 5e-4
+  fp16: True
+  logging_dir: ${root_params.log_dir}
+  load_best_model_at_end: True
+  report_to: tensorboard
+  seed: ${root_params.seed}
+
+lstm:
+  dir_lstm_data: ${root_params.data_dir}/text/lstm
+  save: ${root_params.data_dir}/lstm/model.pt
+  tokenizer_path: ${root_params.data_dir}/lstm/tokenizer.pkl
+  model_type: LSTM
+  emsize: 512
+  nhid: 512
+  nlayers: 6
+  dropout: 0.2
+  tied: True
+  words_limit: 70000
+  num_words: 70003
+  cuda: true
+  device: ${root_params.device}
+  mps: false
+  lr: 20
+  epochs: 40
+  batch_size: 20
+  eval_batch_size: 10
+  bptt: 35
+  seed: ${root_params.seed}
+  log_interval: 200
+  onnx_export: ''
+  nhead: 2
+  dry_run: false
+  clip: 0.25
+  temperature: 1.0
+
+asr_model:
+  model: ${root_params.data_dir}/asr/stt_en_conformer_transducer_small.nemo
+  strategy: beam
+  beam_size: 16
+  batch_size: 2
+
+rescore:
+  calculate_wer: true
+  methods:
+    baseline: true
+    lodr: true
+    dr: true
+    ilme: true
+    sf: true
+  params:
+    baseline: {}
+    sf:
+      gpt2_scores: -0.5047287010364567
+      gpt2_tokens_num: -3.6399782058041836
+    dr:
+      gpt2_scores: 3.129975838444456
+      gpt2_tokens_num: 5.801975132053364
+      dr_scores: -0.4777695208668803
+      dr_tokens_num: -3.5653710369962184
+    lodr:
+      gpt2_scores: -0.8417934562529141
+      gpt2_tokens_num: 0.4938420832328311
+      lodr_scores: 3.693616625634322
+      lodr_tokens_num: 1.1242307606818862
+    ilme:
+      gpt2_scores: 5.20042502082186
+      gpt2_tokens_num: 9.913189124343653
+      ilme_scores: 2.438887637162279
+      ilme_tokens_num: 6.472788613198019
+
+optimize:
+  db_exp: data/optimize/exp.db
+  optimize_data_file: data/optimize/data_all.pkl
+  load_if_exists: true
+  n_trials: 1000
+  n_jobs: 5
+  bounds:
+      sf:
+        gpt2_scores: [-10, 10]
+        gpt2_tokens_num: [-10, 10]
+      dr:
+        gpt2_scores: [-10, 10]
+        gpt2_tokens_num: [-10, 10]
+        dr_scores: [-10, 10]
+        dr_tokens_num: [-10, 10]
+      lodr:
+        gpt2_scores: [-10, 10]
+        gpt2_tokens_num: [-10, 10]
+        lodr_scores: [-10, 10]
+        lodr_tokens_num: [-10, 10]
+      ilme:
+        gpt2_scores: [-10, 10]
+        gpt2_tokens_num: [-10, 10]
+        ilme_scores: [-10, 10]
+        ilme_tokens_num: [-10, 10]

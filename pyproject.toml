@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rnnt_lm_fusion"
+version = "0.0.0"
+authors = [
+  { name="Alexander92-cpu" },
+]
+description = "Language Model fusio for ASR RNN-T model"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: Linux",
+]
+
+dependencies = [
+      "onnx>=1.12.0", 
+      "numpy>=1.24.0",
+      "scipy>=1.8.1",
+      "sentencepiece>=0.1.97",
+      "torch>=1.13.0",
+      "torchaudio>=0.13.0",
+      "torchvision>=0.14.0"
+]
+
+[project.optional-dependencies]
+pkg = [
+    "kenlm @ git+https://github.com/kpu/kenlm/archive/master.zip"
+]
+
+[tool.setuptools.packages.find]
+include = ["rnnt_lm_fusion*"]
