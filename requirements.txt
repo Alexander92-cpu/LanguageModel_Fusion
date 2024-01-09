@@ -243,7 +243,7 @@ transformers==4.30.0
 typed-ast==1.5.4
 typer==0.7.0
 typing-extensions==4.4.0
-urllib3==1.26.13
+urllib3==1.26.18
 wandb==0.13.7
 wcwidth==0.2.5
 webdataset==0.1.62
