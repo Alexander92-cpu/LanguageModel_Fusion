@@ -76,7 +76,7 @@ asr_model:
   model: ${root_params.data_dir}/asr/stt_en_conformer_transducer_small.nemo
   strategy: beam
   beam_size: 16
-  batch_size: 2
+  batch_size: 1
 
 rescore:
   calculate_wer: true
@@ -89,46 +89,41 @@ rescore:
   params:
     baseline: {}
     sf:
-      gpt2_scores: -0.5047287010364567
-      gpt2_tokens_num: -3.6399782058041836
+      gpt2_scores: 0.2
+      num_tokens: 0.1
     dr:
-      gpt2_scores: 3.129975838444456
-      gpt2_tokens_num: 5.801975132053364
-      dr_scores: -0.4777695208668803
-      dr_tokens_num: -3.5653710369962184
+      gpt2_scores: 4.2
+      dr_scores: -1.2
+      num_tokens: 7.6
     lodr:
-      gpt2_scores: -0.8417934562529141
-      gpt2_tokens_num: 0.4938420832328311
-      lodr_scores: 3.693616625634322
-      lodr_tokens_num: 1.1242307606818862
+      gpt2_scores: 6.7
+      lodr_scores: -0.2
+      num_tokens: 9.1
     ilme:
-      gpt2_scores: 5.20042502082186
-      gpt2_tokens_num: 9.913189124343653
-      ilme_scores: 2.438887637162279
-      ilme_tokens_num: 6.472788613198019
+      gpt2_scores: 1.4
+      ilme_scores: -0.09
+      num_tokens: 1.8
 
 optimize:
   db_exp: data/optimize/exp.db
   optimize_data_file: data/optimize/data_all.pkl
   load_if_exists: true
-  n_trials: 1000
-  n_jobs: 5
+  n_trials: 2000
+  n_jobs: 1
+  step: 0.1
   bounds:
       sf:
-        gpt2_scores: [-10, 10]
-        gpt2_tokens_num: [-10, 10]
+        gpt2_scores: [0, 10]
+        num_tokens: [0, 10]
       dr:
-        gpt2_scores: [-10, 10]
-        gpt2_tokens_num: [-10, 10]
-        dr_scores: [-10, 10]
-        dr_tokens_num: [-10, 10]
+        gpt2_scores: [0, 10]
+        dr_scores: [-10, 0]
+        num_tokens: [0, 10]
       lodr:
-        gpt2_scores: [-10, 10]
-        gpt2_tokens_num: [-10, 10]
-        lodr_scores: [-10, 10]
-        lodr_tokens_num: [-10, 10]
+        gpt2_scores: [0, 10]
+        lodr_scores: [-10, 0]
+        num_tokens: [0, 10]
       ilme:
-        gpt2_scores: [-10, 10]
-        gpt2_tokens_num: [-10, 10]
-        ilme_scores: [-10, 10]
-        ilme_tokens_num: [-10, 10]
+        gpt2_scores: [0, 10]
+        ilme_scores: [-10, 0]
+        num_tokens: [0, 10]

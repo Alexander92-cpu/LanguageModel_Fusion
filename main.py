@@ -189,10 +189,11 @@ def test(cfg: DictConfig):
     wf.rescore()
 
 
-@hydra.main(version_base=None)
+@hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
+    hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
+    cfg.root_params.log_dir = hydra_cfg.run.dir
     OmegaConf.resolve(cfg)
-    cfg.root_params.log_dir = cfg.hydra.run.dir
 
     set_seed(cfg.root_params.seed)
 
@@ -202,6 +203,4 @@ def main(cfg: DictConfig):
 
 
 if __name__ == '__main__':
-    with initialize(version_base=None, config_path="conf", job_name="main"):
-        cfg_exp = compose(config_name="config", return_hydra_config=True)
-    main(cfg_exp)
+    main()

@@ -1,5 +1,5 @@
 from collections import defaultdict
-import logging
+import math
 from typing import List, Dict, Tuple
 
 import editdistance
@@ -27,7 +27,7 @@ class Rescore:
 
     def eval_rnnt(self, audio_dataloader) -> Dict:
         info = defaultdict(list)
-        for batch in tqdm(audio_dataloader, leave=False, desc="Decoding",
+        for batch in tqdm(audio_dataloader, leave=True, desc="Decoding",
                           total=len(audio_dataloader)):
             input_signal, input_signal_length, references = batch
             input_signal = input_signal.to(self.device)
@@ -42,35 +42,31 @@ class Rescore:
                         temp.add(nbest.text)
                         unique_idx.append(i)
                 utexts = [nbests[i].text for i in unique_idx]
-                tokens_num = {}
 
                 scores = {'asr_scores': np.array([nbests[i].score for i in unique_idx])}
-                gpt2_outputs = self.nll_word_sent_batch(utexts)
-                scores['gpt2_scores'], tokens_num['gpt2_tokens_num'] = gpt2_outputs
+                scores['gpt2_scores'], scores['num_tokens'] = self.nll_word_sent_batch(utexts)
 
                 if self.methods['lodr']:
-                    ngram_outputs = self.get_ngram_lm_score(utexts)
-                    scores['lodr_scores'], tokens_num['lodr_tokens_num'] = ngram_outputs
+                    scores['lodr_scores'], _ = self.get_ngram_lm_score(utexts)
                 if self.methods['dr']:
-                    ilstm_outputs = self.ilstm_inference(utexts)
-                    scores['dr_scores'], tokens_num['dr_tokens_num'] = ilstm_outputs
+                    scores['dr_scores'], _ = self.ilstm_inference(utexts)
                 if self.methods['ilme']:
-                    scores['ilme_scores'] = np.array([all_hypotheses_zero[idx][i].score
-                                                      for i in unique_idx])
-                    tokens_num['ilme_tokens_num'] = tokens_num['gpt2_tokens_num']
+                    scores['ilme_scores'] = np.array([all_hypotheses_zero[idx][i].score for i in unique_idx])
 
                 for key, use_method in self.methods.items():
-                    rescore = scores['asr_scores']
+                    rescore = scores['asr_scores'].copy()
                     if key != 'baseline' and use_method:
                         for param in self.rescore_params[key]:
-                            if 'scores' in param:
-                                rescore += self.rescore_params[key][param] * scores[param]
-                            if 'tokens_num' in param:
-                                rescore += self.rescore_params[key][param] * tokens_num[param]
-                    st_rescore = np.argsort(-rescore)
-                    best_hypothesis = nbests[unique_idx[st_rescore[0]]]
+                            rescore += self.rescore_params[key][param] * scores[param]
+                        rescore = rescore.tolist()
+                        st_rescore = rescore.index(max(rescore))
+                        best_hypothesis = nbests[unique_idx[st_rescore]]
+                    elif key == 'baseline':
+                        best_hypothesis = nbests[0]
+                    else:
+                        continue
                     info[key].append(best_hypothesis.text)
-                info['outputs'].append({'scores': scores, 'tokens_num': tokens_num,
+                info['outputs'].append({'scores': scores,
                                         'utexts': utexts, 'reference': references[idx]})
             info['references'].extend(references)
         if self.cfg.rescore.calculate_wer:
@@ -104,14 +100,14 @@ class Rescore:
         for line in text:
             line = [self.bos_token_id] + self.data_pool.asr_tokenizer.tokenizer.Encode(line) + [self.eos_token_id]
             num_tokens.append(len(line))
-            input_ids.append(torch.tensor(line, dtype=torch.long).to(self.device))
+            input_ids.append(torch.tensor(line, dtype=torch.long).unsqueeze(0).to(self.device))
 
         neg_log_likelihoods = []
         with torch.inference_mode():
             with torch.cuda.amp.autocast():
                 for sentence in input_ids:
                     outputs = self.data_pool.ft_lm_model(input_ids=sentence, labels=sentence)
-                    neg_log_likelihoods.append(-sentence.size(0) * outputs.loss.cpu().item())
+                    neg_log_likelihoods.append(-sentence.size(1) * outputs.loss.cpu().item())
 
         return np.array(neg_log_likelihoods), np.array(num_tokens)
 
@@ -121,15 +117,9 @@ class Rescore:
         scores = []
 
         for tokenized_sentence in tokenized_text:
-            words = tokenized_sentence
             sentence = ' '.join(tokenized_sentence)
-
-            sentence_score = self.data_pool.ngram_lm.score(sentence)
+            sentence_score = self.data_pool.ngram_lm.score(sentence) * math.log(10)
             scores.append(sentence_score)
-
-            for i, (_, _, oov) in enumerate(self.data_pool.ngram_lm.full_scores(sentence)):
-                if oov:
-                    logging.warning('\t %i is an OOV', words[i+1])
 
         return np.array(scores), np.array(tokens_num)
 
@@ -168,7 +158,7 @@ class Rescore:
             word_eds.append(editdistance.eval(hyp_words, ref_words))
             word_ref_lens.append(len(ref_words))
         if word_ref_lens:
-            wer = float(sum(word_eds)) / sum(word_ref_lens)
+            wer = 100 * float(sum(word_eds)) / sum(word_ref_lens)
         else:
             wer = None
         return wer

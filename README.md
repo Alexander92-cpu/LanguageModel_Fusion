@@ -5,7 +5,7 @@
 
 All experiments were performed using Ubuntu OS.
 
-- [Python](https://www.python.org/) 3.8+ is required
+- [Python](https://www.python.org/) We use Python 3.10.4 (main, Mar 23 2022, 23:05:40) [GCC 11.2.0] on linux
 
 - [PyTorch](https://pytorch.org) is required: follow [their installation instructions](https://pytorch.org/get-started/locally/) before proceeding
 
@@ -77,13 +77,13 @@ $Y_{ELM}$ - token sequence (obtained by the tokenizer used in ELM) that correson
 
 $P_{ELM}(Y_{ELM})$ - probability of $Y$ estimated by an external trained neural LM. LM should have a complex architecture;
 
-$|Y_{RNN-T}|$, $|Y_{ILM}|$, $|Y_{ELM}|$ - lengths in tokens.
+$|Y_{RNN-T}|$ - lengths in tokens.
 
-We use beam decoding algorithm to decode $Z$. The decoding algorithm gives us as a result $H$ - a set (list) of n-best hypotheses (first n most probalistic hypotheses) for each input audio frames. Thus we can use rescoring algorithm, i. e. to select from $H$ the best one $\bar{Y}$ using auxiliary algorithms and/or methods. We can convert $Y_{RNN-T}$ to words and after that obtain $Y_{ILM}$ and $Y_{ILM}$. If we formulate the latter idea mathematically we have
+We use beam decoding algorithm to decode $Z$. The decoding algorithm gives us as a result $H$ - a set (list) of n-best hypotheses (first n most probalistic hypotheses) for each input audio frames. Thus we can use rescoring algorithm, i. e. to select from $H$ the best one $\bar{Y}$ using auxiliary algorithms and/or methods. We can convert $Y_{RNN-T}$ to words and after that obtain $Y_{ELM}$ and $Y_{ILM}$. If we formulate the latter idea mathematically we have
 
-$\bar{Y}=\arg\max_{Y_{RNN-T}{\in}H}({\log}P_{RNN-T}(Y_{RNN-T}|X)+{\lambda_{0}}{\log}P_{ILM}(Y_{ILM})+{\lambda_{1}}P_{ELM}(Y_{ELM})+\beta_{1}(|Y_{RNN-T}|)+\beta_{2}(|Y_{ILM}|)+\beta_{3}(|Y_{ELM}|)),$
+$\bar{Y}=\arg\max_{Y_{RNN-T}{\in}H}({\log}P_{RNN-T}(Y_{RNN-T}|X)+{\lambda_{0}}{\log}P_{ILM}(Y_{ILM})+{\lambda_{1}}P_{ELM}(Y_{ELM})+\beta(|Y_{RNN-T}|),$
 
-where $\lambda_{0}$, $\lambda_{1}$, $\beta_{1}$, $\beta_{2}$ and $\beta_{3}$ are hyper-parameters (real numbers). As a result we have
+where $\lambda_{0}$, $\lambda_{1}$, $\beta$ are hyper-parameters (real numbers). As a result we have
 
 ![plot](plots/table.png)
 

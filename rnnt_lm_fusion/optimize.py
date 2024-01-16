@@ -19,9 +19,6 @@ class Optimizator:
                 for score_param, score_values in batch['scores'].items():
                     for idx, score_value in enumerate(score_values):
                         dict_batch[idx][score_param] = score_value
-                for tokens_num_param, tokens_num_values in batch['tokens_num'].items():
-                    for idx, tokens_num_value in enumerate(tokens_num_values):
-                        dict_batch[idx][tokens_num_param] = tokens_num_value
                 for idx, tokens_num_value in enumerate(batch['utexts']):
                     dict_batch[idx]['transcription'] = tokens_num_value
                     dict_batch[idx]['reference'] = batch['reference']
@@ -45,17 +42,18 @@ class Optimizator:
                                             ))
                 study.optimize(lambda trial: get_best_hyperparams(trial, self.data,
                                                                   values.keys(),
-                                                                  self.cfg.optimize.bounds[study_name]),
+                                                                  self.cfg.optimize.bounds[study_name],
+                                                                  self.cfg.optimize.step),
                                                                   gc_after_trial=True,
                                                                   n_trials=self.cfg.optimize.n_trials,
                                                                   n_jobs=self.cfg.optimize.n_jobs)
 
 
-def get_best_hyperparams(trial, data: List[dict], params, bounds):
+def get_best_hyperparams(trial, data: List[dict], params, bounds, step) -> float:
     generated_params = {}
     for param in params:
         generated_params[param] = trial.suggest_float(param, bounds[param][0],
-                                                      bounds[param][1], step=0.1)
+                                                      bounds[param][1], step=step)
     transcriptions = []
     references = []
     for nbests in data:
@@ -69,4 +67,7 @@ def get_best_hyperparams(trial, data: List[dict], params, bounds):
         transcriptions.append(nbests[st_rescore]['transcription'])
         references.append(nbests[0]['reference'])
     wer = Rescore.calculate_wer(transcriptions, references)
+    if wer is None:
+        wer = 100
+
     return round(wer, 4)
