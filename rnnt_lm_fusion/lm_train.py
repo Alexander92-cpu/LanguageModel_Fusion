@@ -27,7 +27,7 @@ class LMPool:
         self.fusion_lm_model = None
         self.training_args = None
 
-    def set_asr_tokenizer(self):
+    def set_asr_tokenizer(self) -> None:
         device = self.cfg.root_params.device
         asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(self.cfg.asr_model.model,
                                                                     map_location=device)
@@ -36,7 +36,7 @@ class LMPool:
         self.eos_token_id = len(self.asr_tokenizer) + 1
         self.pad_token_id = len(self.asr_tokenizer) + 2
 
-    def set_gpt2_model(self):
+    def set_gpt2_model(self) -> None:
         lm_model = GPT2LMHeadModel.from_pretrained(self.cfg.gpt2.model_name)
 
         lm_model_config = lm_model.config
@@ -59,7 +59,7 @@ class LMPool:
         fusion_lm_model.load_state_dict(sd_flm)
         self.fusion_lm_model = fusion_lm_model
 
-    def set_gtp2_arguments(self):
+    def set_gtp2_arguments(self) -> None:
         self.training_args = TrainingArguments(
                 output_dir=self.cfg.gpt2.output_dir,
                 per_device_train_batch_size=self.cfg.gpt2.per_device_train_batch_size,
@@ -89,24 +89,24 @@ class LMPool:
         return trainer
 
     @staticmethod
-    def test_gpt2(trainer: Trainer) -> dict:
+    def test_gpt2(trainer: Trainer) -> Dict[str, float]:
         baseline = {}
         baseline['eval_loss'] = trainer.evaluate()['eval_loss']
         baseline['perplexity'] = torch.exp(torch.tensor(baseline['eval_loss'])).item()
         return baseline
 
-    def fine_tuning_gpt2(self, trainer: Trainer, checkpoint_path: Optional[Path] = None):
+    def fine_tuning_gpt2(self, trainer: Trainer, checkpoint_path: Optional[Path] = None) -> None:
         trainer.train(checkpoint_path)
         trainer.save_model(self.cfg.gpt2.dir_model)
 
-    def load_ft_gpt2(self, model_dir_save: Path) -> GPT2LMHeadModel:
+    def load_ft_gpt2(self, model_dir_save: Path) -> None:
         self.fusion_lm_model = GPT2LMHeadModel.from_pretrained(model_dir_save)
 
-    def train_ngram(self):
+    def train_ngram(self) -> None:
         trainer = Ngram(self.cfg)
         trainer.train()
 
-    def train_lstm(self):
+    def train_lstm(self) -> None:
         wlm = WLM(self.cfg)
         wlm.run()
 
@@ -119,7 +119,7 @@ class TextDataset(Dataset):
         eos_id: int,
         file_paths: List,
         block_size: int
-    ):
+    ) -> None:
         self.examples = []
         self.raw_text = []
         for file_path in file_paths:
@@ -142,7 +142,7 @@ class TextDataset(Dataset):
             #     self.examples.append(tokenized_text[i + block_size:])
         self.examples = [torch.tensor(e, dtype=torch.long) for e in self.examples]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.examples)
 
     def __getitem__(self, i: int) -> torch.Tensor:

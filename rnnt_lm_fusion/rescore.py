@@ -1,19 +1,29 @@
 from collections import defaultdict
 import math
-from typing import List, Dict, Tuple
+from typing import Dict, Optional, List, Tuple, Union
 
 import editdistance
 import numpy as np
 from omegaconf import DictConfig
+from nemo.collections.asr.parts.utils.rnnt_utils import Hypothesis
 import torch
+from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
+from .eval_data import DataPool
 from .train_ngram.utils import tokenize_str
 from .word_language_model.data import tokenize_str as lstm_tokenize_str
 
 
+RescoreOutput = Dict[str,
+                       Union[List[str],
+                             Dict[str, float],
+                             List[Dict[str, Union[str, List[str], Dict[str, np.array]]]]
+                             ]
+                    ]
+
 class Rescore:
-    def __init__(self, cfg: DictConfig, data_pool) -> None:
+    def __init__(self, cfg: DictConfig, data_pool: DataPool) -> None:
         self.cfg = cfg
         self.data_pool = data_pool
         self.apply_methods = any(item for item in self.cfg.rescore.methods.values())
@@ -25,7 +35,10 @@ class Rescore:
         self.eos_token_id = self.data_pool.ft_lm_model.config.eos_token_id
         self.rescore_params = self.cfg.rescore.params
 
-    def eval_rnnt(self, audio_dataloader) -> Dict:
+    def eval_rnnt(
+            self,
+            audio_dataloader: DataLoader
+        ) -> RescoreOutput:
         info = defaultdict(list)
         for batch in tqdm(audio_dataloader, leave=True, desc="Decoding",
                           total=len(audio_dataloader)):
@@ -80,7 +93,11 @@ class Rescore:
                     info['wer'][key] = None
         return info
 
-    def rnnt_alignments(self, input_signal, input_signal_length):
+    def rnnt_alignments(
+            self,
+            input_signal: torch.tensor,
+            input_signal_length: torch.tensor
+        ) -> Tuple[List[List[Hypothesis]], List[List[Hypothesis]]]:
         with torch.inference_mode():
             with torch.cuda.amp.autocast():
                 encoded, encoded_len = self.data_pool.asr_model.forward(input_signal=input_signal,
@@ -94,7 +111,7 @@ class Rescore:
                     _, all_hypotheses_zero = current_hypotheses_zero
         return all_hypotheses, all_hypotheses_zero
 
-    def nll_word_sent_batch(self, text: List[str]) -> Tuple[float, List]:
+    def nll_word_sent_batch(self, text: List[str]) -> Tuple[np.array, np.array]:
         input_ids = []
         num_tokens = []
         for line in text:
@@ -111,7 +128,7 @@ class Rescore:
 
         return np.array(neg_log_likelihoods), np.array(num_tokens)
 
-    def get_ngram_lm_score(self, text: List) -> np.array:
+    def get_ngram_lm_score(self, text: List[str]) -> Tuple[np.array, np.array]:
         tokenized_text = tokenize_str(text, self.data_pool.asr_tokenizer, self.cfg.kenlm.offset)
         tokens_num = [len(item) for item in tokenized_text]
         scores = []
@@ -123,7 +140,7 @@ class Rescore:
 
         return np.array(scores), np.array(tokens_num)
 
-    def ilstm_inference(self, data_source: List[str]):
+    def ilstm_inference(self, data_source: List[str]) -> Tuple[np.array, np.array]:
         tokenized_text = []
         ilstm_tokens_num = []
         for line in data_source:
@@ -142,7 +159,7 @@ class Rescore:
         return np.array(sentence_probs), np.array(ilstm_tokens_num)
 
     @staticmethod
-    def calculate_wer(seqs_hat: List, seqs_true: List) -> float:
+    def calculate_wer(seqs_hat: List[str], seqs_true: List[str]) -> Optional[float]:
         """Calculate sentence-level WER score.
 
         :param list seqs_hat: prediction

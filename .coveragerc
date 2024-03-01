@@ -1,0 +1,4 @@
+[paths]
+source = 
+   rnnt_lm_fusion
+   .tox/*/site-packages

@@ -1,10 +1,10 @@
 # coding: utf-8
 import logging
 import math
-import os
 from pathlib import Path
 import pickle
 import time
+from typing import Tuple, Union
 
 from omegaconf import DictConfig
 import torch
@@ -12,7 +12,7 @@ import torch.onnx
 from torch import nn
 
 from .data import Corpus
-from .model import RNNModel, TransformerModel
+from .model import RNNModel
 
 
 class WLM:
@@ -44,7 +44,7 @@ class WLM:
         # Load data
         ###############################################################################
 
-        self.corpus = Corpus(self.cfg.data, self.cfg.words_limit)
+        self.corpus = Corpus(self.cfg.dir_lstm_data, self.cfg.words_limit)
 
         if not Path(self.cfg.tokenizer_path).exists():
             with open(self.cfg.tokenizer_path, 'wb') as file:
@@ -59,13 +59,8 @@ class WLM:
         ###############################################################################
 
         ntokens = len(self.corpus.dictionary)
-        if self.cfg.model_type == 'Transformer':
-            self.model = TransformerModel(ntokens, self.cfg.emsize, self.cfg.nhead,
-                                          self.cfg.nhid, self.cfg.nlayers,
-                                          self.cfg.dropout).to(device)
-        else:
-            self.model = RNNModel(self.cfg.model_type, ntokens, self.cfg.emsize, self.cfg.nhid,
-                                  self.cfg.nlayers, self.cfg.dropout, self.cfg.tied).to(device)
+        self.model = RNNModel(self.cfg.model_type, ntokens, self.cfg.emsize, self.cfg.nhid,
+                                self.cfg.nlayers, self.cfg.dropout, self.cfg.tied).to(device)
 
         self.criterion = nn.NLLLoss()
 
@@ -90,8 +85,6 @@ class WLM:
                 logging.info('-' * 89)
                 # Save the model if the validation loss is the best we've seen so far.
                 if not best_val_loss or val_loss < best_val_loss:
-                    # with open(args.save, 'wb') as f:
-                    #     torch.save(model, f)
                     torch.save(self.model.state_dict(), self.cfg.save)
                     best_val_loss = val_loss
                 else:
@@ -103,14 +96,6 @@ class WLM:
             logging.info('Exiting from training early')
 
         # # Load the best saved model.
-        # with open(args.save, 'rb') as f:
-        #     model = torch.load(f)
-        #     # after load the rnn params are not a continuous chunk of memory
-        #     # this makes them a continuous chunk, and will speed up forward pass
-        #     # Currently, only rnn model supports flatten_parameters function.
-        #     if args.model in ['RNN_TANH', 'RNN_RELU', 'LSTM', 'GRU']:
-        #         model.rnn.flatten_parameters()
-
         self.model.load_state_dict(torch.load(self.cfg.save))
         self.model = self.model.to(device)
         if self.cfg.model_type in ['RNN_TANH', 'RNN_RELU', 'LSTM', 'GRU']:
@@ -123,12 +108,8 @@ class WLM:
                      test_loss, math.exp(test_loss))
         logging.info('=' * 89)
 
-        if len(self.cfg.onnx_export) > 0:
-            # Export the model in ONNX format.
-            self.export_onnx(device, batch_size=1)
-
     @staticmethod
-    def batchify(data, bsz, device):
+    def batchify(data: torch.tensor, bsz: int, device: torch.device) -> torch.tensor:
         # Starting from sequential data, batchify arranges the dataset into columns.
         # For instance, with the alphabet as the sequence and batch size 4, we'd get
         # ┌ a g m s ┐
@@ -149,7 +130,11 @@ class WLM:
         return data.to(device)
 
     @staticmethod
-    def repackage_hidden(h):
+    def repackage_hidden(
+        h: Union[Tuple[torch.tensor, torch.tensor],
+                 torch.tensor]
+        ) -> Union[Tuple[torch.tensor, torch.tensor],
+                   torch.tensor]:
         """Wraps hidden states in new Tensors, to detach them from their history."""
 
         if isinstance(h, torch.Tensor):
@@ -158,7 +143,7 @@ class WLM:
             return tuple(WLM.repackage_hidden(v) for v in h)
 
     @staticmethod
-    def get_batch(source, i, bptt):
+    def get_batch(source: torch.tensor, i: int, bptt: int) -> Tuple[torch.tensor, torch.tensor]:
         # get_batch subdivides the source data into chunks of length args.bptt.
         # If source is equal to the example output of the batchify function, with
         # a bptt-limit of 2, we'd get the following two Variables for i = 0:
@@ -173,45 +158,33 @@ class WLM:
         target = source[i+1:i+1+seq_len].view(-1)
         return data, target
 
-    def evaluate(self, data_source):
+    def evaluate(self, data_source: torch.tensor) -> float:
         # Turn on evaluation mode which disables dropout.
         self.model.eval()
         total_loss = 0.
-        ntokens = len(self.corpus.dictionary)
-        if self.cfg.model_type != 'Transformer':
-            hidden = self.model.init_hidden(self.cfg.eval_batch_size)
+        hidden = self.model.init_hidden(self.cfg.eval_batch_size)
         with torch.no_grad():
             for i in range(0, data_source.size(0) - 1, self.cfg.bptt):
                 data, targets = self.get_batch(data_source, i, self.cfg.bptt)
-                if self.cfg.model_type == 'Transformer':
-                    output = self.model(data)
-                    output = output.view(-1, ntokens)
-                else:
-                    output, hidden = self.model(data, hidden)
-                    hidden = self.repackage_hidden(hidden)
+                output, hidden = self.model(data, hidden)
+                hidden = self.repackage_hidden(hidden)
                 total_loss += len(data) * self.criterion(output, targets).item()
         return total_loss / (len(data_source) - 1)
 
-    def train(self, epoch, train_data, lr):
+    def train(self, epoch: int, train_data: torch.tensor, lr: float):
         # Turn on training mode which enables dropout.
         self.model.train()
         total_loss = 0.
         start_time = time.time()
-        ntokens = len(self.corpus.dictionary)
-        if self.cfg.model_type != 'Transformer':
-            hidden = self.model.init_hidden(self.cfg.batch_size)
+        hidden = self.model.init_hidden(self.cfg.batch_size)
         for batch, i in enumerate(range(0, train_data.size(0) - 1, self.cfg.bptt)):
             data, targets = self.get_batch(train_data, i, self.cfg.bptt)
             # Starting each batch, we detach the hidden state from how it was previously
             # produced. If we didn't, the model would try backpropagating all the way to start
             # of the dataset.
             self.model.zero_grad()
-            if self.cfg.model_type == 'Transformer':
-                output = self.model(data)
-                output = output.view(-1, ntokens)
-            else:
-                hidden = self.repackage_hidden(hidden)
-                output, hidden = self.model(data, hidden)
+            hidden = self.repackage_hidden(hidden)
+            output, hidden = self.model(data, hidden)
             loss = self.criterion(output, targets)
             loss.backward()
 
@@ -233,12 +206,3 @@ class WLM:
                 start_time = time.time()
             if self.cfg.dry_run:
                 break
-
-    def export_onnx(self, device, batch_size):
-        logging.info('The model is also exported in ONNX format at %s.',
-                     os.path.realpath(self.cfg.onnx_export))
-        self.model.eval()
-        dummy_input = torch.LongTensor(self.cfg.bptt * batch_size).zero_().view(-1, batch_size)
-        dummy_input = dummy_input.to(device)
-        hidden = self.model.init_hidden(batch_size)
-        torch.onnx.export(self.model, (dummy_input, hidden), self.cfg.onnx_export)

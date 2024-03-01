@@ -2,8 +2,9 @@ from concurrent.futures import ThreadPoolExecutor
 import copy
 from pathlib import Path
 import pickle
-from typing import List, Tuple, Dict
+from typing import Dict, List, Tuple, Union
 
+import datasets
 import kenlm
 import nemo.collections.asr as nemo_asr
 from omegaconf import open_dict, DictConfig
@@ -30,7 +31,7 @@ class DataPool:
         self.lstm_tokenizer = None
         self.lstm = None
 
-    def get_asr_model(self) -> nemo_asr.models.EncDecRNNTBPEModel:
+    def get_asr_model(self) -> None:
         asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(self.cfg.asr_model.model,
                                                                     map_location=self.device)
         asr_model.freeze()
@@ -45,12 +46,12 @@ class DataPool:
         asr_model.cfg.validation_ds.batch_size = self.cfg.asr_model.batch_size
         self.asr_model = asr_model
 
-    def get_data(self, data):
+    def get_data(self, data: Dict[str, Dataset]) -> Dict[str, DataLoader]:
         ap = AudioPool(self.asr_model.cfg, self.cfg.root_params.eval_do_lowercase)
-        datasets = ap.get_datasets(data)
-        return ap.get_dataloaders(datasets)
+        datasets_ = ap.get_datasets(data)
+        return ap.get_dataloaders(datasets_)
 
-    def get_asr_tokenizer(self):
+    def get_asr_tokenizer(self) -> None:
         asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(self.cfg.asr_model.model,
                                                                     map_location=self.device)
         self.asr_tokenizer = asr_model.tokenizer
@@ -58,7 +59,7 @@ class DataPool:
         self.start_tokens = {i for i in range(len(self.asr_tokenizer.tokenizer))
                              if start_token in self.asr_tokenizer.tokenizer.id_to_piece([i])[0]}
 
-    def get_lms(self):
+    def get_lms(self) -> None:
         ft_lm_model = GPT2LMHeadModel.from_pretrained(self.cfg.gpt2.dir_model)
         self.ft_lm_model = ft_lm_model.to(self.device)
 
@@ -69,7 +70,7 @@ class DataPool:
         self.lstm = self.get_lstm(self.cfg.lstm)
 
     @staticmethod
-    def get_lstm(cfg: DictConfig):
+    def get_lstm(cfg: DictConfig) -> RNNModel:
         model = RNNModel(cfg.model_type, cfg.num_words, cfg.emsize, cfg.nhid,
                          cfg.nlayers, cfg.dropout, cfg.tied)
         model.load_state_dict(torch.load(cfg.save))
@@ -84,11 +85,18 @@ class AudioPool:
         self.asr_model_config = asr_model_config
         self.do_lowercase = do_lowercase
 
-    def get_datasets(self, data):
+    def get_datasets(
+            self,
+            data: Dict[str, datasets.arrow_dataset.Dataset]
+        ) -> Dict[str, Dict[str, Union[torch.tensor, str]]]:
         return {key: self.get_data(dataset['file'], dataset['text']) for key, dataset in
                 data.items()}
 
-    def get_data(self, audio_paths, references):
+    def get_data(
+            self,
+            audio_paths: List[str],
+            references: List[str]
+        ) -> Dict[str, Union[torch.tensor, str]]:
         with ThreadPoolExecutor() as executor:
             results = list(
                     tqdm(
@@ -104,7 +112,7 @@ class AudioPool:
             data['text'].append(reference)
         return data
 
-    def process_audio(self, audio_path, text):
+    def process_audio(self, audio_path: str, text: str) -> Tuple[torch.tensor, str]:
         audio_path = list(Path(audio_path).parent.rglob(Path(audio_path).name))
         assert len(audio_path) == 1
         audio_tensor = self.read_audio(audio_path[0], self.asr_model_config.sample_rate)
@@ -112,13 +120,15 @@ class AudioPool:
             text = text.lower()
         return audio_tensor, text
 
-    def get_dataloaders(self, datasets: Dict) -> Dict:
+    def get_dataloaders(
+            self,
+            datasets_: Dict[str, Dict[str, Union[torch.tensor, str]]]
+        ) -> Dict[str, DataLoader]:
         return {key: self.create_dataloader(data['audio'], data['text']) for key, data in
-                datasets.items()}
+                datasets_.items()}
 
     @staticmethod
-    def read_audio(path: str, sample_rate: int):
-        assert torchaudio.get_audio_backend() == 'soundfile'
+    def read_audio(path: str, sample_rate: int) -> torch.tensor:
         try:
             wav, sr = torchaudio.load(path,
                                     normalize=True,
@@ -139,7 +149,7 @@ class AudioPool:
 
         return torch.squeeze(wav, dim=0)
 
-    def create_dataloader(self, audio: List, texts: List) -> DataLoader:
+    def create_dataloader(self, audio: List[torch.tensor], texts: List[str]) -> DataLoader:
         dataset = AudioDataset(audio, texts)
         dataloader = DataLoader(dataset,
                                 batch_size=self.asr_model_config.validation_ds.batch_size,
@@ -151,9 +161,9 @@ class AudioPool:
 class AudioDataset(Dataset):
     def __init__(
         self,
-        audio: List,
-        references: List,
-    ):
+        audio: List[torch.tensor],
+        references: List[str],
+    ) -> None:
         self.audio = audio
         self.references = references
 

@@ -3,9 +3,11 @@
 
 ## Installation
 
-All experiments were performed using Ubuntu OS.
+All experiments were performed using Ubuntu 22.04.4.
 
-- [Python](https://www.python.org/) We use Python 3.10.4 (main, Mar 23 2022, 23:05:40) [GCC 11.2.0] on linux
+- [Python](https://www.python.org/) We use Python 3.10.12
+
+- [git-lfs](https://git-lfs.com/) is required to get the data from HF Hub. Use these [instructions](https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md) for example.
 
 - [PyTorch](https://pytorch.org) is required: follow [their installation instructions](https://pytorch.org/get-started/locally/) before proceeding
 
@@ -14,8 +16,6 @@ All experiments were performed using Ubuntu OS.
 - [huggingface/transformers](https://github.com/huggingface/transformers). We use pre-trained neural LM models.
 
 - [kenlm](https://github.com/kpu/kenlm). Run the script 'setup.sh' (don't forget to use the command 'chmod +x setup.sh' before running) and follow instructions [kenlm in python](https://github.com/kpu/kenlm#python-module)
-
-- in rest there is the file 'requirements.txt' there you can find all python libraries used for this project.
 
 ## Code from other sources
 

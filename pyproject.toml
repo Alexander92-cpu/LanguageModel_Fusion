@@ -10,24 +10,31 @@ authors = [
 ]
 description = "Language Model fusio for ASR RNN-T model"
 readme = "README.md"
-requires-python = ">=3.10.4"
+requires-python = ">=3.10.12"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: Linux",
 ]
 
 dependencies = [
-      "nemo-toolkit>=1.21.0",
-      "numpy>=1.23.5",
-      "scipy>=1.11.4",
-      "sentencepiece>=0.1.99",
-      "torch>=1.13.1",
-      "torchaudio>=0.13.1"
+      "huggingface-hub==0.20.3",
+      "hydra-core==1.3.2",
+      "kenlm @ https://github.com/kpu/kenlm/archive/master.zip",
+      "nemo-toolkit[all]==1.22.0",
+      "optuna==3.5.0",
+      "sentencepiece==0.2.0",
+      "torch==2.2.1",
+      "torchaudio==2.2.1",
+      "torchvision==0.17.1",
+      "transformers[torch]==4.38.1"
 ]
 
 [project.optional-dependencies]
-pkg = [
-    "kenlm @ git+https://github.com/kpu/kenlm/archive/master.zip"
+test = [
+    "pytest",
+    "tox",
+    "pytest-cov",
+    "pytest-ordering"
 ]
 
 [tool.setuptools.packages.find]

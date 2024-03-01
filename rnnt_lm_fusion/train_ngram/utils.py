@@ -20,23 +20,19 @@ Utility methods to be used for training N-gram LM with KenLM in train_kenlm.py
 import json
 import logging
 import os
+from typing import List
 
-import numpy as np
 from joblib import Parallel, delayed
+from nemo.collections.common.tokenizers.sentencepiece_tokenizer import SentencePieceTokenizer
 from tqdm.auto import tqdm
 
 
-def softmax(x):
-    e = np.exp(x - np.max(x))
-    return e / e.sum(axis=-1).reshape([x.shape[0], 1])
-
-
-def read_train_file(path, lowercase: bool = False):
+def read_train_file(path: str, lowercase: bool = False):
     lines_read = 0
     text_dataset = []
 
-    with open(path, 'r', encoding='utf-8') as f:
-        reader = tqdm(iter(lambda: f.readline(), ''), desc="Read 0 lines", unit=' lines')
+    with open(path, 'rt', encoding='utf-8') as f:
+        reader = tqdm(iter(f.readline, ''), desc="Read 0 lines", unit=' lines')
         for line in reader:
             if path.endswith('.json'):
                 line = json.loads(line)['text']
@@ -55,7 +51,7 @@ def read_train_file(path, lowercase: bool = False):
     return text_dataset
 
 
-def tokenize_str(texts, tokenizer, offset):
+def tokenize_str(texts: List[str], tokenizer: SentencePieceTokenizer, offset: int):
     tokenized_text = []
     for text in texts:
         tok_text = tokenizer.text_to_ids(text)
@@ -64,7 +60,14 @@ def tokenize_str(texts, tokenizer, offset):
     return tokenized_text
 
 
-def tokenize_text(data, tokenizer, path, chunk_size=8192, buffer_size=32, token_offset=100):
+def tokenize_text(
+        data: List[str],
+        tokenizer: SentencePieceTokenizer,
+        path: str,
+        chunk_size: int = 8192,
+        buffer_size: int = 32,
+        token_offset: int = 100
+    ):
     dataset_len = len(data)
     logging.info("Chunking %i rows into %.4f tasks (each chunk contains %i elements)",
                  dataset_len, dataset_len / float(chunk_size), chunk_size)
@@ -94,13 +97,13 @@ def tokenize_text(data, tokenizer, path, chunk_size=8192, buffer_size=32, token_
                 break
 
 
-def write_dataset(chunks, path):
+def write_dataset(chunks: List[List[str]], path: str):
     basedir = os.path.dirname(path)
 
     if not os.path.exists(basedir):
         os.makedirs(basedir, exist_ok=True)
 
-    with open(path, 'a+', encoding='utf-8') as f:
+    with open(path, 'at+', encoding='utf-8') as f:
         for chunk_idx in tqdm(range(len(chunks)), desc='Chunk ', total=len(chunks), unit=' chunks'):
             for text in chunks[chunk_idx]:
                 line = ' '.join(text)

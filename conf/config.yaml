@@ -4,6 +4,7 @@ root_params:
   device: cuda
   data_dir: data
   eval_do_lowercase: true
+  data_url: https://huggingface.co/AlexanderMaz/LanguageModel_Fusion
 
 lm:
   dir_data: data/text/librispeech
