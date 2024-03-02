@@ -1,6 +1,6 @@
 """Module containing various functions and classes for workflow management.
 
-This module provides functionality for workflow management, including data 
+This module provides functionality for workflow management, including data
 processing, model training, hyperparameter optimization, and evaluation.
 
 Author: Alexandru Mazurenco (2024)

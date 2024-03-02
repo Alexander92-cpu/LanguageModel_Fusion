@@ -1,16 +1,16 @@
 import copy
 import logging
-from pathlib import Path
 import os
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import nemo.collections.asr as nemo_asr
+import torch
 from omegaconf import DictConfig
 from sentencepiece import SentencePieceProcessor
-from tqdm.auto import tqdm
-import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
+from tqdm.auto import tqdm
 from transformers import GPT2LMHeadModel, Trainer, TrainingArguments
 
 from .train_ngram.train import Ngram
@@ -29,8 +29,9 @@ class LMPool:
 
     def set_asr_tokenizer(self) -> None:
         device = self.cfg.root_params.device
-        asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(self.cfg.asr_model.model,
-                                                                    map_location=device)
+        asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(
+            self.cfg.asr_model.model, map_location=device
+        )
         self.asr_tokenizer = asr_model.tokenizer.tokenizer
         self.bos_token_id = len(self.asr_tokenizer)
         self.eos_token_id = len(self.asr_tokenizer) + 1
@@ -61,41 +62,49 @@ class LMPool:
 
     def set_gtp2_arguments(self) -> None:
         self.training_args = TrainingArguments(
-                output_dir=self.cfg.gpt2.output_dir,
-                per_device_train_batch_size=self.cfg.gpt2.per_device_train_batch_size,
-                per_device_eval_batch_size=self.cfg.gpt2.per_device_eval_batch_size,
-                evaluation_strategy=self.cfg.gpt2.evaluation_strategy,
-                save_strategy=self.cfg.gpt2.save_strategy,
-                save_total_limit=self.cfg.gpt2.save_total_limit,
-                logging_steps=self.cfg.gpt2.logging_steps,
-                gradient_accumulation_steps=self.cfg.gpt2.gradient_accumulation_steps,
-                num_train_epochs=self.cfg.gpt2.num_train_epochs,
-                weight_decay=self.cfg.gpt2.weight_decay,
-                warmup_steps=self.cfg.gpt2.warmup_steps,
-                lr_scheduler_type=self.cfg.gpt2.lr_scheduler_type,
-                learning_rate=self.cfg.gpt2.learning_rate,
-                fp16=self.cfg.gpt2.fp16,
-                logging_dir=self.cfg.gpt2.logging_dir,
-                load_best_model_at_end=self.cfg.gpt2.load_best_model_at_end,
-                report_to=self.cfg.gpt2.report_to
+            output_dir=self.cfg.gpt2.output_dir,
+            per_device_train_batch_size=self.cfg.gpt2.per_device_train_batch_size,
+            per_device_eval_batch_size=self.cfg.gpt2.per_device_eval_batch_size,
+            evaluation_strategy=self.cfg.gpt2.evaluation_strategy,
+            save_strategy=self.cfg.gpt2.save_strategy,
+            save_total_limit=self.cfg.gpt2.save_total_limit,
+            logging_steps=self.cfg.gpt2.logging_steps,
+            gradient_accumulation_steps=self.cfg.gpt2.gradient_accumulation_steps,
+            num_train_epochs=self.cfg.gpt2.num_train_epochs,
+            weight_decay=self.cfg.gpt2.weight_decay,
+            warmup_steps=self.cfg.gpt2.warmup_steps,
+            lr_scheduler_type=self.cfg.gpt2.lr_scheduler_type,
+            learning_rate=self.cfg.gpt2.learning_rate,
+            fp16=self.cfg.gpt2.fp16,
+            logging_dir=self.cfg.gpt2.logging_dir,
+            load_best_model_at_end=self.cfg.gpt2.load_best_model_at_end,
+            report_to=self.cfg.gpt2.report_to,
         )
 
-    def set_gpt2_trainer(self, train_dataset: Dataset, eval_dataset: Dataset) -> Trainer:
-        trainer = Trainer(model=self.fusion_lm_model,
-                    args=self.training_args,
-                    train_dataset=train_dataset,
-                    eval_dataset=eval_dataset,
-                    data_collator=lambda x: collate(x, self.fusion_lm_model.config.pad_token_id))
+    def set_gpt2_trainer(
+        self, train_dataset: Dataset, eval_dataset: Dataset
+    ) -> Trainer:
+        trainer = Trainer(
+            model=self.fusion_lm_model,
+            args=self.training_args,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            data_collator=lambda x: collate(
+                x, self.fusion_lm_model.config.pad_token_id
+            ),
+        )
         return trainer
 
     @staticmethod
     def test_gpt2(trainer: Trainer) -> Dict[str, float]:
         baseline = {}
-        baseline['eval_loss'] = trainer.evaluate()['eval_loss']
-        baseline['perplexity'] = torch.exp(torch.tensor(baseline['eval_loss'])).item()
+        baseline["eval_loss"] = trainer.evaluate()["eval_loss"]
+        baseline["perplexity"] = torch.exp(torch.tensor(baseline["eval_loss"])).item()
         return baseline
 
-    def fine_tuning_gpt2(self, trainer: Trainer, checkpoint_path: Optional[Path] = None) -> None:
+    def fine_tuning_gpt2(
+        self, trainer: Trainer, checkpoint_path: Optional[Path] = None
+    ) -> None:
         trainer.train(checkpoint_path)
         trainer.save_model(self.cfg.gpt2.dir_model)
 
@@ -118,7 +127,7 @@ class TextDataset(Dataset):
         bos_id: int,
         eos_id: int,
         file_paths: List,
-        block_size: int
+        block_size: int,
     ) -> None:
         self.examples = []
         self.raw_text = []
@@ -126,8 +135,11 @@ class TextDataset(Dataset):
             if os.path.isfile(file_path) is False:
                 raise ValueError(f"Input file path {file_path} not found")
 
-            text = [word.strip() for word in
-                    Path(file_path).read_text(encoding='utf-8').splitlines() if word.strip()]
+            text = [
+                word.strip()
+                for word in Path(file_path).read_text(encoding="utf-8").splitlines()
+                if word.strip()
+            ]
             self.raw_text.extend(text)
 
             tokenized_text = []
@@ -150,10 +162,12 @@ class TextDataset(Dataset):
 
 
 def collate(input_ids: List[torch.Tensor], pad_id: int) -> Dict[str, torch.Tensor]:
-    attention_mask = [torch.tensor([1]*(item.size(0)), dtype=torch.long) for item in input_ids]
+    attention_mask = [
+        torch.tensor([1] * (item.size(0)), dtype=torch.long) for item in input_ids
+    ]
     attention_mask = pad_sequence(attention_mask, padding_value=0).permute(1, 0)
     labels = copy.deepcopy(input_ids)
     labels = pad_sequence(input_ids, padding_value=-100).permute(1, 0)
     input_ids = pad_sequence(input_ids, padding_value=pad_id).permute(1, 0)
-    data = {'input_ids': input_ids, 'attention_mask': attention_mask, 'labels': labels}
+    data = {"input_ids": input_ids, "attention_mask": attention_mask, "labels": labels}
     return data

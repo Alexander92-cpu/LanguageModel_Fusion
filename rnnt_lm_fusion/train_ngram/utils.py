@@ -23,7 +23,8 @@ import os
 from typing import List
 
 from joblib import Parallel, delayed
-from nemo.collections.common.tokenizers.sentencepiece_tokenizer import SentencePieceTokenizer
+from nemo.collections.common.tokenizers.sentencepiece_tokenizer import \
+    SentencePieceTokenizer
 from tqdm.auto import tqdm
 
 
@@ -31,11 +32,11 @@ def read_train_file(path: str, lowercase: bool = False):
     lines_read = 0
     text_dataset = []
 
-    with open(path, 'rt', encoding='utf-8') as f:
-        reader = tqdm(iter(f.readline, ''), desc="Read 0 lines", unit=' lines')
+    with open(path, "rt", encoding="utf-8") as f:
+        reader = tqdm(iter(f.readline, ""), desc="Read 0 lines", unit=" lines")
         for line in reader:
-            if path.endswith('.json'):
-                line = json.loads(line)['text']
+            if path.endswith(".json"):
+                line = json.loads(line)["text"]
 
             line = line.replace("\n", "").strip()
             if lowercase:
@@ -61,16 +62,20 @@ def tokenize_str(texts: List[str], tokenizer: SentencePieceTokenizer, offset: in
 
 
 def tokenize_text(
-        data: List[str],
-        tokenizer: SentencePieceTokenizer,
-        path: str,
-        chunk_size: int = 8192,
-        buffer_size: int = 32,
-        token_offset: int = 100
-    ):
+    data: List[str],
+    tokenizer: SentencePieceTokenizer,
+    path: str,
+    chunk_size: int = 8192,
+    buffer_size: int = 32,
+    token_offset: int = 100,
+):
     dataset_len = len(data)
-    logging.info("Chunking %i rows into %.4f tasks (each chunk contains %i elements)",
-                 dataset_len, dataset_len / float(chunk_size), chunk_size)
+    logging.info(
+        "Chunking %i rows into %.4f tasks (each chunk contains %i elements)",
+        dataset_len,
+        dataset_len / float(chunk_size),
+        chunk_size,
+    )
 
     current_step = 0
     if os.path.exists(path):
@@ -83,15 +88,21 @@ def tokenize_text(
             end = min((current_step + buffer_size) * chunk_size, dataset_len)
 
             tokenized_data = parallel(
-                delayed(tokenize_str)(data[start : start + chunk_size], tokenizer, token_offset)
+                delayed(tokenize_str)(
+                    data[start : start + chunk_size], tokenizer, token_offset
+                )
                 for start in range(start, end, chunk_size)
             )
 
             # Write dataset
             write_dataset(tokenized_data, path)
             current_step += len(tokenized_data)
-            logging.info("Finished writing %i chunks to %s. Current chunk index = %i",
-                         len(tokenized_data), path, current_step)
+            logging.info(
+                "Finished writing %i chunks to %s. Current chunk index = %i",
+                len(tokenized_data),
+                path,
+                current_step,
+            )
             del tokenized_data
             if end >= dataset_len:
                 break
@@ -103,8 +114,10 @@ def write_dataset(chunks: List[List[str]], path: str):
     if not os.path.exists(basedir):
         os.makedirs(basedir, exist_ok=True)
 
-    with open(path, 'at+', encoding='utf-8') as f:
-        for chunk_idx in tqdm(range(len(chunks)), desc='Chunk ', total=len(chunks), unit=' chunks'):
+    with open(path, "at+", encoding="utf-8") as f:
+        for chunk_idx in tqdm(
+            range(len(chunks)), desc="Chunk ", total=len(chunks), unit=" chunks"
+        ):
             for text in chunks[chunk_idx]:
-                line = ' '.join(text)
+                line = " ".join(text)
                 f.write(f"{line}\n")

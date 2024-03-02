@@ -40,8 +40,8 @@ import subprocess
 import sys
 
 import nemo.collections.asr as nemo_asr
-from omegaconf import DictConfig
 import torch
+from omegaconf import DictConfig
 
 from .utils import read_train_file, tokenize_text
 
@@ -56,12 +56,13 @@ class Ngram:
     NeMo's beam search decoders only support char-level encodings.
     In order to make it work with BPE-level encodings, we
     use a trick to encode the sub-word tokens of the training data as unicode characters
-    and train a char-level KenLM. 
+    and train a char-level KenLM.
     TOKEN_OFFSET is the offset in the unicode table to be used to encode the BPE sub-words.
-    This encoding scheme reduces 
+    This encoding scheme reduces
     the required memory significantly, and the LM and its binary blob format require less
     storage space.
     """
+
     def __init__(self, cfg: DictConfig) -> None:
         self.cfg = cfg.kenlm
         self.train_file = cfg.kenlm.train_file
@@ -71,19 +72,21 @@ class Ngram:
         self.kenlm_bin_path = cfg.kenlm.kenlm_bin_path
 
         logging.info("Loading nemo model %s ...", self.nemo_model_file)
-        if self.nemo_model_file.endswith('.nemo'):
-            self.model = nemo_asr.models.ASRModel.restore_from(self.nemo_model_file,
-                                                               map_location=torch.device('cpu'))
+        if self.nemo_model_file.endswith(".nemo"):
+            self.model = nemo_asr.models.ASRModel.restore_from(
+                self.nemo_model_file, map_location=torch.device("cpu")
+            )
         else:
             logging.warning(
                 """nemo_model_file does not end with .nemo, therefore trying to load
                 a pretrained model with this name."""
             )
-            self.model = nemo_asr.models.ASRModel.from_pretrained(self.nemo_model_file,
-                                                                  map_location=torch.device('cpu'))
+            self.model = nemo_asr.models.ASRModel.from_pretrained(
+                self.nemo_model_file, map_location=torch.device("cpu")
+            )
 
     def train(self):
-        """ DATASET SETUP """
+        """DATASET SETUP"""
         logging.info("Encoding the train file %s ...", self.train_file)
         dataset = read_train_file(self.train_file, lowercase=self.cfg.do_lowercase)
         encoded_train_file = f"{self.kenlm_model_file}.tmp.txt"
@@ -101,7 +104,7 @@ class Ngram:
 
         arpa_file = f"{self.kenlm_model_file}.tmp.arpa"
         kenlm_args = [
-            os.path.join(self.kenlm_bin_path, 'lmplz'),
+            os.path.join(self.kenlm_bin_path, "lmplz"),
             "-o",
             f"{self.ngram_length}",
             "--text",
@@ -111,25 +114,39 @@ class Ngram:
             discount_arg,
         ]
 
-        ret = subprocess.run(kenlm_args, capture_output=False, text=True, stdout=sys.stdout,
-                             stderr=sys.stderr, check=True)
+        ret = subprocess.run(
+            kenlm_args,
+            capture_output=False,
+            text=True,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            check=True,
+        )
         if ret.returncode != 0:
             raise RuntimeError("Training KenLM was not successful!")
-        logging.info("Running binary_build command \n\n{%s}\n\n", ' '.join(kenlm_args))
+        logging.info("Running binary_build command \n\n{%s}\n\n", " ".join(kenlm_args))
         kenlm_args = [
             os.path.join(self.kenlm_bin_path, "build_binary"),
             "trie",
             arpa_file,
             self.kenlm_model_file,
         ]
-        ret = subprocess.run(kenlm_args, capture_output=False, text=True, stdout=sys.stdout,
-                             stderr=sys.stderr, check=True)
+        ret = subprocess.run(
+            kenlm_args,
+            capture_output=False,
+            text=True,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            check=True,
+        )
 
         if ret.returncode != 0:
             raise RuntimeError("Training KenLM was not successful!")
 
         if self.cfg.remove_temp_files:
             os.remove(encoded_train_file)
-            logging.info("Deleted the temporary encoded training file %s.", encoded_train_file)
+            logging.info(
+                "Deleted the temporary encoded training file %s.", encoded_train_file
+            )
             os.remove(arpa_file)
             logging.info("Deleted the arpa file %s.", arpa_file)

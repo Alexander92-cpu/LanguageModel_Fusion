@@ -15,13 +15,12 @@ All experiments were performed using Ubuntu 22.04.4.
 
 - [huggingface/transformers](https://github.com/huggingface/transformers). We use pre-trained neural LM models.
 
-- [kenlm](https://github.com/kpu/kenlm). Run the script 'setup.sh' (don't forget to use the command 'chmod +x setup.sh' before running) and follow instructions [kenlm in python](https://github.com/kpu/kenlm#python-module)
+- [kenlm](https://github.com/kpu/kenlm). Also follow instructions [kenlm in python](https://github.com/kpu/kenlm#python-module)
 
 ## Code from other sources
 
 1. All scripts needed to train kenlm models can be found in the 'train_ngram' directory. This code is taken from [NeMo's kenlm scripts](https://github.com/NVIDIA/NeMo/tree/main/scripts/asr_language_modeling/ngram_lm) and was slightly changed for our purposes;
 1. all scripts needed to train word-level neural LM can be found in the 'word_language_model' directory. This code is taken from [pytorch_examples](https://github.com/pytorch/examples/tree/main/word_language_model). The code was slightly changed for our purposes;
-1. the code for WER computing was taken from [espnet](https://github.com/espnet/espnet).
 
 In rest the code was created by the author.
 

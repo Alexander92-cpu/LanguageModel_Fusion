@@ -1,20 +1,20 @@
-from concurrent.futures import ThreadPoolExecutor
 import copy
-from pathlib import Path
 import pickle
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
 import datasets
-import kenlm
 import nemo.collections.asr as nemo_asr
-from omegaconf import open_dict, DictConfig
-from tqdm.auto import tqdm
-from torch.utils.data import Dataset
-import torchaudio
 import torch
+import torchaudio
+from omegaconf import DictConfig, open_dict
 from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
+from tqdm.auto import tqdm
 from transformers import GPT2LMHeadModel
+
+import kenlm
 
 from .word_language_model.model import RNNModel
 
@@ -32,8 +32,9 @@ class DataPool:
         self.lstm = None
 
     def get_asr_model(self) -> None:
-        asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(self.cfg.asr_model.model,
-                                                                    map_location=self.device)
+        asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(
+            self.cfg.asr_model.model, map_location=self.device
+        )
         asr_model.freeze()
         decoding_config = copy.deepcopy(asr_model.cfg.decoding)
         decoding_config.strategy = self.cfg.asr_model.strategy
@@ -52,12 +53,16 @@ class DataPool:
         return ap.get_dataloaders(datasets_)
 
     def get_asr_tokenizer(self) -> None:
-        asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(self.cfg.asr_model.model,
-                                                                    map_location=self.device)
+        asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(
+            self.cfg.asr_model.model, map_location=self.device
+        )
         self.asr_tokenizer = asr_model.tokenizer
         start_token = self.cfg.tokenizer.start_token
-        self.start_tokens = {i for i in range(len(self.asr_tokenizer.tokenizer))
-                             if start_token in self.asr_tokenizer.tokenizer.id_to_piece([i])[0]}
+        self.start_tokens = {
+            i
+            for i in range(len(self.asr_tokenizer.tokenizer))
+            if start_token in self.asr_tokenizer.tokenizer.id_to_piece([i])[0]
+        }
 
     def get_lms(self) -> None:
         ft_lm_model = GPT2LMHeadModel.from_pretrained(self.cfg.gpt2.dir_model)
@@ -65,14 +70,21 @@ class DataPool:
 
         self.ngram_lm = kenlm.LanguageModel(self.cfg.kenlm.model)
 
-        with open(self.cfg.lstm.tokenizer_path, 'rb') as file:
+        with open(self.cfg.lstm.tokenizer_path, "rb") as file:
             self.lstm_tokenizer = pickle.load(file)
         self.lstm = self.get_lstm(self.cfg.lstm)
 
     @staticmethod
     def get_lstm(cfg: DictConfig) -> RNNModel:
-        model = RNNModel(cfg.model_type, cfg.num_words, cfg.emsize, cfg.nhid,
-                         cfg.nlayers, cfg.dropout, cfg.tied)
+        model = RNNModel(
+            cfg.model_type,
+            cfg.num_words,
+            cfg.emsize,
+            cfg.nhid,
+            cfg.nlayers,
+            cfg.dropout,
+            cfg.tied,
+        )
         model.load_state_dict(torch.load(cfg.save))
         model.rnn.flatten_parameters()
         model = model.to(cfg.device)
@@ -86,30 +98,29 @@ class AudioPool:
         self.do_lowercase = do_lowercase
 
     def get_datasets(
-            self,
-            data: Dict[str, datasets.arrow_dataset.Dataset]
-        ) -> Dict[str, Dict[str, Union[torch.tensor, str]]]:
-        return {key: self.get_data(dataset['file'], dataset['text']) for key, dataset in
-                data.items()}
+        self, data: Dict[str, datasets.arrow_dataset.Dataset]
+    ) -> Dict[str, Dict[str, Union[torch.tensor, str]]]:
+        return {
+            key: self.get_data(dataset["file"], dataset["text"])
+            for key, dataset in data.items()
+        }
 
     def get_data(
-            self,
-            audio_paths: List[str],
-            references: List[str]
-        ) -> Dict[str, Union[torch.tensor, str]]:
+        self, audio_paths: List[str], references: List[str]
+    ) -> Dict[str, Union[torch.tensor, str]]:
         with ThreadPoolExecutor() as executor:
             results = list(
-                    tqdm(
-                        executor.map(self.process_audio, audio_paths, references),
-                        total=len(audio_paths),
-                        leave=False,
-                        desc="Read data"
-                    )
+                tqdm(
+                    executor.map(self.process_audio, audio_paths, references),
+                    total=len(audio_paths),
+                    leave=False,
+                    desc="Read data",
                 )
-        data = {'audio': [], 'text': []}
+            )
+        data = {"audio": [], "text": []}
         for audio_tensor, reference in results:
-            data['audio'].append(audio_tensor)
-            data['text'].append(reference)
+            data["audio"].append(audio_tensor)
+            data["text"].append(reference)
         return data
 
     def process_audio(self, audio_path: str, text: str) -> Tuple[torch.tensor, str]:
@@ -121,40 +132,45 @@ class AudioPool:
         return audio_tensor, text
 
     def get_dataloaders(
-            self,
-            datasets_: Dict[str, Dict[str, Union[torch.tensor, str]]]
-        ) -> Dict[str, DataLoader]:
-        return {key: self.create_dataloader(data['audio'], data['text']) for key, data in
-                datasets_.items()}
+        self, datasets_: Dict[str, Dict[str, Union[torch.tensor, str]]]
+    ) -> Dict[str, DataLoader]:
+        return {
+            key: self.create_dataloader(data["audio"], data["text"])
+            for key, data in datasets_.items()
+        }
 
     @staticmethod
     def read_audio(path: str, sample_rate: int) -> torch.tensor:
         try:
-            wav, sr = torchaudio.load(path,
-                                    normalize=True,
-                                    channels_first=True)
+            wav, sr = torchaudio.load(path, normalize=True, channels_first=True)
         except Exception as exc:
-            raise OSError(f'Error reading {path}') from exc
+            raise OSError(f"Error reading {path}") from exc
 
         if wav.size()[0] != 1:
-            raise ValueError('Consider only mono format for audiofiles!')
+            raise ValueError("Consider only mono format for audiofiles!")
 
         if sr != sample_rate:
-            transform = torchaudio.transforms.Resample(orig_freq=sr, new_freq=sample_rate)
+            transform = torchaudio.transforms.Resample(
+                orig_freq=sr, new_freq=sample_rate
+            )
             wav = transform(wav)
             sr = sample_rate
 
         if sr != sample_rate:
-            raise ValueError(f'{sr} != {sample_rate}')
+            raise ValueError(f"{sr} != {sample_rate}")
 
         return torch.squeeze(wav, dim=0)
 
-    def create_dataloader(self, audio: List[torch.tensor], texts: List[str]) -> DataLoader:
+    def create_dataloader(
+        self, audio: List[torch.tensor], texts: List[str]
+    ) -> DataLoader:
         dataset = AudioDataset(audio, texts)
-        dataloader = DataLoader(dataset,
-                                batch_size=self.asr_model_config.validation_ds.batch_size,
-                                shuffle=False,
-                                collate_fn=collate)
+        dataloader = DataLoader(
+            dataset,
+            batch_size=self.asr_model_config.validation_ds.batch_size,
+            shuffle=False,
+            collate_fn=collate,
+        )
         return dataloader
 
 
@@ -175,7 +191,12 @@ class AudioDataset(Dataset):
         return self.audio[i], audio_tensor, self.references[i]
 
 
-def collate(batch: Tuple[List[torch.Tensor], List[torch.Tensor], List[str]]
-            ) -> Tuple[torch.Tensor, torch.Tensor, List[str]]:
+def collate(
+    batch: Tuple[List[torch.Tensor], List[torch.Tensor], List[str]]
+) -> Tuple[torch.Tensor, torch.Tensor, List[str]]:
     input_signals, input_signal_lengths, labels = zip(*batch)
-    return pad_sequence(input_signals).permute(1, 0), torch.stack(input_signal_lengths), labels
+    return (
+        pad_sequence(input_signals).permute(1, 0),
+        torch.stack(input_signal_lengths),
+        labels,
+    )
