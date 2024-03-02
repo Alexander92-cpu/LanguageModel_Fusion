@@ -23,8 +23,10 @@ from hydra import compose, initialize
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 
-from rnnt_lm_fusion import (DataPool, LMPool, Optimizator, Rescore,
-                            RescoreOutput, TextDataset)
+from rnnt_lm_fusion.eval_data import DataPool
+from rnnt_lm_fusion.lm_train import LMPool, TextDataset
+from rnnt_lm_fusion.optimize import Optimizator
+from rnnt_lm_fusion.rescore import Rescore, RescoreOutput
 
 torch.set_num_threads(1)
 torch.set_num_interop_threads(1)
