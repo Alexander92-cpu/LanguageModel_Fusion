@@ -9,20 +9,7 @@ All experiments were performed using Ubuntu 22.04.4.
 
 - [git-lfs](https://git-lfs.com/) is required to get the data from HF Hub. Use these [instructions](https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md) for example.
 
-- [PyTorch](https://pytorch.org) is required: follow [their installation instructions](https://pytorch.org/get-started/locally/) before proceeding
-
-- [NeMo](https://github.com/NVIDIA/NeMo). We use pre-trained RNN-T models.
-
-- [huggingface/transformers](https://github.com/huggingface/transformers). We use pre-trained neural LM models.
-
-- [kenlm](https://github.com/kpu/kenlm). Also follow instructions [kenlm in python](https://github.com/kpu/kenlm#python-module)
-
-## Code from other sources
-
-1. All scripts needed to train kenlm models can be found in the 'train_ngram' directory. This code is taken from [NeMo's kenlm scripts](https://github.com/NVIDIA/NeMo/tree/main/scripts/asr_language_modeling/ngram_lm) and was slightly changed for our purposes;
-1. all scripts needed to train word-level neural LM can be found in the 'word_language_model' directory. This code is taken from [pytorch_examples](https://github.com/pytorch/examples/tree/main/word_language_model). The code was slightly changed for our purposes;
-
-In rest the code was created by the author.
+- [kenlm](https://github.com/kpu/kenlm). Follow instructions [kenlm compiling](https://github.com/kpu/kenlm?tab=readme-ov-file#compiling)
 
 ## Data
 

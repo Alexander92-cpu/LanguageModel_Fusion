@@ -20,15 +20,43 @@ Utility methods to be used for training N-gram LM with KenLM in train_kenlm.py
 import json
 import logging
 import os
+from dataclasses import dataclass
 from typing import List
 
 from joblib import Parallel, delayed
-from nemo.collections.common.tokenizers.sentencepiece_tokenizer import \
-    SentencePieceTokenizer
+from nemo.collections.common.tokenizers.sentencepiece_tokenizer import (
+    SentencePieceTokenizer,
+)
 from tqdm.auto import tqdm
 
 
+@dataclass
+class TokenizeConfig:
+    """
+    Configuration class for tokenization.
+
+    Attributes:
+        chunk_size (int): The size of each chunk for parallel processing.
+        buffer_size (int): The number of chunks to process in parallel.
+        token_offset (int): The offset value to add to each token.
+    """
+
+    chunk_size: int = 8192
+    buffer_size: int = 32
+    token_offset: int = 100
+
+
 def read_train_file(path: str, lowercase: bool = False):
+    """
+    Read and process a training file.
+
+    Args:
+        path (str): The path to the training file.
+        lowercase (bool, optional): Whether to convert the text to lowercase. Defaults to False.
+
+    Returns:
+        List[str]: A list of processed text data from the file.
+    """
     lines_read = 0
     text_dataset = []
 
@@ -53,6 +81,17 @@ def read_train_file(path: str, lowercase: bool = False):
 
 
 def tokenize_str(texts: List[str], tokenizer: SentencePieceTokenizer, offset: int):
+    """
+    Tokenize a list of strings.
+
+    Args:
+        texts (List[str]): The list of strings to tokenize.
+        tokenizer (SentencePieceTokenizer): The tokenizer to use.
+        offset (int): The offset value to add to each token.
+
+    Returns:
+        List[List[str]]: A list of tokenized strings.
+    """
     tokenized_text = []
     for text in texts:
         tok_text = tokenizer.text_to_ids(text)
@@ -65,16 +104,23 @@ def tokenize_text(
     data: List[str],
     tokenizer: SentencePieceTokenizer,
     path: str,
-    chunk_size: int = 8192,
-    buffer_size: int = 32,
-    token_offset: int = 100,
+    config: TokenizeConfig = TokenizeConfig(),
 ):
+    """
+    Tokenize a list of texts and write the tokenized data to a file.
+
+    Args:
+        data (List[str]): The list of texts to tokenize.
+        tokenizer (SentencePieceTokenizer): The tokenizer to use.
+        path (str): The path to write the tokenized data.
+        config (TokenizeConfig, optional): Configuration for tokenization.
+    """
     dataset_len = len(data)
     logging.info(
         "Chunking %i rows into %.4f tasks (each chunk contains %i elements)",
         dataset_len,
-        dataset_len / float(chunk_size),
-        chunk_size,
+        dataset_len / float(config.chunk_size),
+        config.chunk_size,
     )
 
     current_step = 0
@@ -84,14 +130,18 @@ def tokenize_text(
 
     with Parallel(n_jobs=-2, verbose=10) as parallel:
         while True:
-            start = current_step * chunk_size
-            end = min((current_step + buffer_size) * chunk_size, dataset_len)
+            start = current_step * config.chunk_size
+            end = min(
+                (current_step + config.buffer_size) * config.chunk_size, dataset_len
+            )
 
             tokenized_data = parallel(
                 delayed(tokenize_str)(
-                    data[start : start + chunk_size], tokenizer, token_offset
+                    data[start : start + config.chunk_size],
+                    tokenizer,
+                    config.token_offset,
                 )
-                for start in range(start, end, chunk_size)
+                for start in range(start, end, config.chunk_size)
             )
 
             # Write dataset
@@ -109,6 +159,13 @@ def tokenize_text(
 
 
 def write_dataset(chunks: List[List[str]], path: str):
+    """
+    Write tokenized dataset chunks to a file.
+
+    Args:
+        chunks (List[List[str]]): The list of tokenized dataset chunks.
+        path (str): The path to write the tokenized dataset.
+    """
     basedir = os.path.dirname(path)
 
     if not os.path.exists(basedir):

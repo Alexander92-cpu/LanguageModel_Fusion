@@ -22,7 +22,8 @@
 # encodings and models which is detected automatically from the type of the model.
 # After the N-gram model is trained, and stored in the binary format, you may use
 # 'scripts/ngram_lm/eval_beamsearch_ngram.py' to evaluate it on an ASR model.
-#
+# The code:
+# https://github.com/NVIDIA/NeMo/tree/main/scripts/asr_language_modeling/ngram_lm
 # You need to install the KenLM library and also the beam search decoders to use this feature.
 # Please refer to 'scripts/ngram_lm/install_beamsearch_decoders.sh' on how to install them.
 #
@@ -43,7 +44,7 @@ import nemo.collections.asr as nemo_asr
 import torch
 from omegaconf import DictConfig
 
-from .utils import read_train_file, tokenize_text
+from .utils import TokenizeConfig, read_train_file, tokenize_text
 
 TOKEN_OFFSET = 100
 
@@ -91,13 +92,16 @@ class Ngram:
         dataset = read_train_file(self.train_file, lowercase=self.cfg.do_lowercase)
         encoded_train_file = f"{self.kenlm_model_file}.tmp.txt"
 
+        tokenizer_config = TokenizeConfig(
+            chunk_size=CHUNK_SIZE,
+            buffer_size=CHUNK_BUFFER_SIZE,
+            token_offset=TOKEN_OFFSET,
+        )
         tokenize_text(
             dataset,
             self.model.tokenizer,
             path=encoded_train_file,
-            chunk_size=CHUNK_SIZE,
-            buffer_size=CHUNK_BUFFER_SIZE,
-            token_offset=TOKEN_OFFSET,
+            config=tokenizer_config,
         )
         # --discount_fallback is needed for training KenLM for BPE-based models
         discount_arg = "--discount_fallback"
@@ -144,9 +148,19 @@ class Ngram:
             raise RuntimeError("Training KenLM was not successful!")
 
         if self.cfg.remove_temp_files:
-            os.remove(encoded_train_file)
-            logging.info(
-                "Deleted the temporary encoded training file %s.", encoded_train_file
-            )
-            os.remove(arpa_file)
-            logging.info("Deleted the arpa file %s.", arpa_file)
+            self.remove_temp_files(arpa_file, encoded_train_file)
+
+    def remove_temp_files(self, arpa_file: str, encoded_train_file: str):
+        """
+        Delete all temp files created during training process
+
+        Args:
+            arpa_file (str): temp arpa model
+            encoded_train_file (str): tokenized train text file
+        """
+        os.remove(encoded_train_file)
+        logging.info(
+            "Deleted the temporary encoded training file %s.", encoded_train_file
+        )
+        os.remove(arpa_file)
+        logging.info("Deleted the arpa file %s.", arpa_file)

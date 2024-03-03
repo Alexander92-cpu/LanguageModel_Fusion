@@ -1,4 +1,17 @@
 # coding: utf-8
+"""
+Module for training a word-level neural language model.
+
+This module contains functionality for training a word-level neural language model using PyTorch.
+It includes methods for setting up the training environment, loading data, building the model,
+training the model for one epoch, and evaluating the model on test data.
+
+Original GitHub repository:
+https://github.com/pytorch/examples/tree/main/word_language_model
+
+"""
+
+
 import logging
 import math
 import pickle
@@ -12,10 +25,23 @@ from omegaconf import DictConfig
 from torch import nn
 
 from .data import Corpus
-from .model import RNNModel
+from .model import RNNModel, RNNModelConfig
 
 
 class WLM:
+    """
+    Word Language Model (WLM) class for training and evaluating LSTM-based language models.
+
+    Args:
+        cfg (DictConfig): Configuration parameters for the WLM.
+
+    Attributes:
+        cfg (DictConfig): Configuration parameters for the WLM.
+        corpus (Corpus): Corpus object containing the training, validation, and test data.
+        criterion (NLLLoss): Negative Log-Likelihood loss function.
+        model (RNNModel): LSTM-based language model.
+    """
+
     def __init__(self, cfg: DictConfig) -> None:
         self.cfg = cfg.lstm
         self.corpus = None
@@ -23,6 +49,13 @@ class WLM:
         self.model = None
 
     def run(self):
+        """
+        Executes the training process for the language model.
+
+        Sets the random seed for reproducibility, loads the data, builds the model,
+        and trains it over multiple epochs.
+        Saves the best model based on validation loss and evaluates it on the test data.
+        """
         # Set the random seed manually for reproducibility.
         torch.manual_seed(self.cfg.seed)
         if torch.cuda.is_available():
@@ -36,11 +69,8 @@ class WLM:
                     "WARNING: You have mps device, to enable macOS GPU run with --mps."
                 )
 
-        use_mps = self.cfg.mps and torch.backends.mps.is_available()
         if self.cfg.cuda:
             device = torch.device("cuda")
-        elif use_mps:
-            device = torch.device("mps")
         else:
             device = torch.device("cpu")
 
@@ -63,15 +93,16 @@ class WLM:
         ###############################################################################
 
         ntokens = len(self.corpus.dictionary)
-        self.model = RNNModel(
-            self.cfg.model_type,
-            ntokens,
-            self.cfg.emsize,
-            self.cfg.nhid,
-            self.cfg.nlayers,
-            self.cfg.dropout,
-            self.cfg.tied,
-        ).to(device)
+        config = RNNModelConfig(
+            rnn_type=self.cfg.model_type,
+            ntoken=ntokens,
+            ninp=self.cfg.emsize,
+            nhid=self.cfg.nhid,
+            nlayers=self.cfg.nlayers,
+            dropout=self.cfg.dropout,
+            tie_weights=self.cfg.tied,
+        )
+        self.model = RNNModel(config).to(device)
 
         self.criterion = nn.NLLLoss()
 
@@ -129,17 +160,30 @@ class WLM:
 
     @staticmethod
     def batchify(data: torch.tensor, bsz: int, device: torch.device) -> torch.tensor:
-        # Starting from sequential data, batchify arranges the dataset into columns.
-        # For instance, with the alphabet as the sequence and batch size 4, we'd get
-        # ┌ a g m s ┐
-        # │ b h n t │
-        # │ c i o u │
-        # │ d j p v │
-        # │ e k q w │
-        # └ f l r x ┘.
-        # These columns are treated as independent by the model, which means that the
-        # dependence of e. g. 'g' on 'f' can not be learned, but allows more efficient
-        # batch processing.
+        """
+        Batchifies the input data.
+
+        Args:
+            data (torch.tensor): The input data tensor.
+            bsz (int): Batch size.
+            device (torch.device): Device to place the tensor on.
+
+        Returns:
+            torch.tensor: Batchified tensor.
+
+        Note:
+            Starting from sequential data, batchify arranges the dataset into columns.
+            For instance, with the alphabet as the sequence and batch size 4, we'd get
+            ┌ a g m s ┐
+            │ b h n t │
+            │ c i o u │
+            │ d j p v │
+            │ e k q w │
+            └ f l r x ┘.
+            These columns are treated as independent by the model, which means that the
+            dependence of e. g. 'g' on 'f' can not be learned, but allows more efficient
+            batch processing.
+        """
         # Work out how cleanly we can divide the dataset into bsz parts.
         nbatch = data.size(0) // bsz
         # Trim off any extra elements that wouldn't cleanly fit (remainders).
@@ -152,32 +196,61 @@ class WLM:
     def repackage_hidden(
         h: Union[Tuple[torch.tensor, torch.tensor], torch.tensor]
     ) -> Union[Tuple[torch.tensor, torch.tensor], torch.tensor]:
-        """Wraps hidden states in new Tensors, to detach them from their history."""
+        """
+        Wraps hidden states in new Tensors, detaching them from their history.
+
+        Args:
+            h (Union[Tuple[torch.tensor, torch.tensor], torch.tensor]): Hidden states.
+
+        Returns:
+            Union[Tuple[torch.tensor, torch.tensor], torch.tensor]: Detached hidden states.
+        """
 
         if isinstance(h, torch.Tensor):
             return h.detach()
-        else:
-            return tuple(WLM.repackage_hidden(v) for v in h)
+        return tuple(WLM.repackage_hidden(v) for v in h)
 
     @staticmethod
     def get_batch(
         source: torch.tensor, i: int, bptt: int
     ) -> Tuple[torch.tensor, torch.tensor]:
-        # get_batch subdivides the source data into chunks of length args.bptt.
-        # If source is equal to the example output of the batchify function, with
-        # a bptt-limit of 2, we'd get the following two Variables for i = 0:
-        # ┌ a g m s ┐ ┌ b h n t ┐
-        # └ b h n t ┘ └ c i o u ┘
-        # Note that despite the name of the function, the subdivison of data is not
-        # done along the batch dimension (i.e. dimension 1), since that was handled
-        # by the batchify function. The chunks are along dimension 0, corresponding
-        # to the seq_len dimension in the LSTM.
+        """
+        Gets a batch of data for training or evaluation.
+
+        Args:
+            source (torch.tensor): The source data tensor.
+            i (int): Starting index for the batch.
+            bptt (int): Backpropagation through time limit.
+
+        Returns:
+            Tuple[torch.tensor, torch.tensor]: Tuple containing data and target tensors.
+
+        Note:
+        get_batch subdivides the source data into chunks of length args.bptt.
+        If source is equal to the example output of the batchify function, with
+        a bptt-limit of 2, we'd get the following two Variables for i = 0:
+        ┌ a g m s ┐ ┌ b h n t ┐
+        └ b h n t ┘ └ c i o u ┘
+        Note that despite the name of the function, the subdivison of data is not
+        done along the batch dimension (i.e. dimension 1), since that was handled
+        by the batchify function. The chunks are along dimension 0, corresponding
+        to the seq_len dimension in the LSTM.
+        """
         seq_len = min(bptt, len(source) - 1 - i)
         data = source[i : i + seq_len]
         target = source[i + 1 : i + 1 + seq_len].view(-1)
         return data, target
 
     def evaluate(self, data_source: torch.tensor) -> float:
+        """
+        Evaluates the model on the given data.
+
+        Args:
+            data_source (torch.tensor): The data tensor to evaluate the model on.
+
+        Returns:
+            float: Evaluation loss.
+        """
         # Turn on evaluation mode which disables dropout.
         self.model.eval()
         total_loss = 0.0
@@ -191,6 +264,14 @@ class WLM:
         return total_loss / (len(data_source) - 1)
 
     def train(self, epoch: int, train_data: torch.tensor, lr: float):
+        """
+        Trains the model for one epoch.
+
+        Args:
+            epoch (int): Current epoch number.
+            train_data (torch.tensor): Training data tensor.
+            lr (float): Learning rate.
+        """
         # Turn on training mode which enables dropout.
         self.model.train()
         total_loss = 0.0
@@ -216,18 +297,16 @@ class WLM:
 
             if batch % self.cfg.log_interval == 0 and batch > 0:
                 cur_loss = total_loss / self.cfg.log_interval
-                elapsed = time.time() - start_time
                 logging.info(
-                    "| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | "
-                    "ms/batch {:5.2f} | loss {:5.2f} | ppl {:8.2f}".format(
-                        epoch,
-                        batch,
-                        len(train_data) // self.cfg.bptt,
-                        lr,
-                        elapsed * 1000 / self.cfg.log_interval,
-                        cur_loss,
-                        math.exp(cur_loss),
-                    )
+                    """| epoch %3d | %5d/%5d batches | lr %02.2f | ms/batch %5.2f |
+                    loss %5.2f | ppl %8.2f""",
+                    epoch,
+                    batch,
+                    len(train_data) // self.cfg.bptt,
+                    lr,
+                    (time.time() - start_time) * 1000 / self.cfg.log_interval,
+                    cur_loss,
+                    math.exp(cur_loss),
                 )
                 total_loss = 0
                 start_time = time.time()
