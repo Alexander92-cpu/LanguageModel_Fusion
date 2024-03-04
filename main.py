@@ -23,10 +23,15 @@ from hydra import compose, initialize
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 
-from rnnt_lm_fusion.eval_data import DataPool
-from rnnt_lm_fusion.lm_train import LMPool, TextDataset
-from rnnt_lm_fusion.optimize import Optimizator
-from rnnt_lm_fusion.rescore import Rescore, RescoreOutput
+from rnnt_lm_fusion import (
+    DataPool,
+    LMPool,
+    Optimizator,
+    Rescore,
+    RescoreOutput,
+    TextDataset,
+    TextDatasetConfig,
+)
 
 torch.set_num_threads(1)
 torch.set_num_interop_threads(1)
@@ -146,13 +151,14 @@ class Workflow:
         tpaths_to_data["test_clean"] = [paths_to_data["clean"]["test"]]
 
         for key, value in tpaths_to_data.items():
-            self.datasets[key] = TextDataset(
-                self.lm_pool.asr_tokenizer,
-                self.lm_pool.bos_token_id,
-                self.lm_pool.eos_token_id,
-                value,
-                self.cfg.lm.block_size,
+            config = TextDatasetConfig(
+                tokenizer=self.lm_pool.asr_tokenizer,
+                bos_id=self.lm_pool.bos_token_id,
+                eos_id=self.lm_pool.eos_token_id,
+                file_paths=value,
+                block_size=self.cfg.lm.block_size,
             )
+            self.datasets[key] = TextDataset(config)
 
     def train_lstm(self) -> None:
         """Train the LSTM model using specified data types.

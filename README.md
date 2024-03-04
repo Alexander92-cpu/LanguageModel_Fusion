@@ -9,7 +9,7 @@ All experiments were performed using Ubuntu 22.04.4.
 
 - [git-lfs](https://git-lfs.com/) is required to get the data from HF Hub. Use these [instructions](https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md) for example.
 
-- [kenlm](https://github.com/kpu/kenlm). Follow instructions [kenlm compiling](https://github.com/kpu/kenlm?tab=readme-ov-file#compiling)
+- [kenlm](https://github.com/kpu/kenlm). Follow [compiling](https://github.com/kpu/kenlm?tab=readme-ov-file#compiling) instructions.
 
 ## Data
 

@@ -1,17 +1,46 @@
+"""
+Module for hyperparameter optimization in rescoring.
+
+This module contains the `Optimizator` class, which is responsible for optimizing
+hyperparameters used in the rescoring process. It uses Optuna for hyperparameter optimization.
+
+Author: Alexandru Mazurenco (2024)
+License: Apache 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+"""
+
 from typing import Dict, List
 
 import optuna
 from omegaconf import DictConfig
+from optuna.trial import Trial
 
 from .rescore import Rescore, RescoreOutput
 
 
 class Optimizator:
+    """
+    Class for optimizing hyperparameters used in rescoring.
+
+    Args:
+        cfg (DictConfig): Configuration containing optimization settings.
+        data_pool (RescoreOutput): Rescore output data.
+
+    Attributes:
+        cfg (DictConfig): Configuration containing optimization settings.
+        data (List[dict]): List of dictionaries containing rescore data.
+    """
+
     def __init__(self, cfg: DictConfig, data_pool: RescoreOutput) -> None:
         self.cfg = cfg
         self.prepare_data(data_pool)
 
     def prepare_data(self, data_pool: RescoreOutput) -> None:
+        """
+        Prepares rescore data for optimization.
+
+        Args:
+            data_pool (RescoreOutput): Rescore output data.
+        """
         self.data = []
         for _, info in data_pool.items():
             for batch in info["outputs"]:
@@ -25,6 +54,9 @@ class Optimizator:
                 self.data.append(list(dict_batch.values()))
 
     def optimize(self) -> None:
+        """
+        Optimizes hyperparameters for rescoring.
+        """
         sampler = optuna.samplers.TPESampler(multivariate=True, group=True)
 
         for study_name, values in self.cfg.rescore.params.items():
@@ -58,12 +90,25 @@ class Optimizator:
 
 
 def get_best_hyperparams(
-    trial: optuna.trial._trial.Trial,
+    trial: Trial,
     data: List[dict],
     params: List[str],
     bounds: Dict[str, List[int]],
     step: float,
 ) -> float:
+    """
+    Function to obtain the best hyperparameters.
+
+    Args:
+        trial (Trial): Optuna trial.
+        data (List[dict]): List of dictionaries containing rescore data.
+        params (List[str]): List of parameter names.
+        bounds (Dict[str, List[int]]): Dictionary of parameter bounds.
+        step (float): Step size for parameter suggestion.
+
+    Returns:
+        float: Word error rate (WER) after applying the suggested hyperparameters.
+    """
     generated_params = {}
     for param in params:
         generated_params[param] = trial.suggest_float(
