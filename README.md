@@ -5,7 +5,7 @@
 
 All experiments were performed using Ubuntu 22.04.4.
 
-- [Python](https://www.python.org/) We use Python 3.10.12
+- [Python](https://www.python.org/). We use Python 3.10.12
 
 - [git-lfs](https://git-lfs.com/) is required to get the data from HF Hub. Use these [instructions](https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md) for example.
 
