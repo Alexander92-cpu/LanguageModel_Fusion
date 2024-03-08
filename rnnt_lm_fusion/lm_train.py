@@ -10,9 +10,9 @@ License: Apache 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
 """
 
 import copy
-from dataclasses import dataclass
 import logging
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 

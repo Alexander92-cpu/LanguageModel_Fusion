@@ -22,6 +22,7 @@ from git import Repo
 from hydra import compose, initialize
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
+from torch.utils.data import Dataset
 
 from rnnt_lm_fusion import (
     DataPool,
@@ -215,12 +216,7 @@ class Workflow:
             "test_other": load_dataset("librispeech_asr", "other", split="test"),
             "test_clean": load_dataset("librispeech_asr", "clean", split="test"),
         }
-        eval_data_pool = DataPool(self.cfg)
-        eval_data_pool.get_asr_tokenizer()
-        eval_data_pool.get_lms()
-        eval_data_pool.get_asr_model()
-        self.eval_dataloaders = eval_data_pool.get_data(data)
-        self.eval_data_pool = eval_data_pool
+        self.get_eval_data_pool(data)
 
     def load_optimization_data(self) -> None:
         """Load data for optimization purposes.
@@ -238,6 +234,21 @@ class Workflow:
                 "librispeech_asr", "clean", split="validation"
             ),
         }
+        self.get_eval_data_pool(data)
+
+    def get_eval_data_pool(self, data: Dict[str, Dataset]):
+        """Get evaluation data pool for the given datasets.
+
+        This method initializes a data pool for evaluation, including acquiring
+        necessary components such as ASR tokenizer, language models, and ASR model,
+        and then retrieves evaluation dataloaders from the data pool for the provided
+        datasets.
+
+        Args:
+            data (Dict[str, Dataset]): A dictionary containing datasets for evaluation,
+                where keys are identifiers for each dataset and values are corresponding
+                Dataset objects.
+        """
         eval_data_pool = DataPool(self.cfg)
         eval_data_pool.get_asr_tokenizer()
         eval_data_pool.get_lms()

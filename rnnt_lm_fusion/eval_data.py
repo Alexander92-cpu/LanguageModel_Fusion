@@ -9,6 +9,7 @@ License: Apache 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
 import copy
 import pickle
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
@@ -24,7 +25,25 @@ from transformers import GPT2LMHeadModel
 
 import kenlm
 
+from .word_language_model.data import Dictionary
 from .word_language_model.model import RNNModel, RNNModelConfig
+
+
+@dataclass
+class LMModels:
+    """A data class representing language models and associated components.
+
+    Attributes:
+        ft_lm_model (Optional[GPT2LMHeadModel]): Fine-tuned GPT2 language model.
+        ngram_lm (Optional[kenlm.LanguageModel]): N-gram language model.
+        lstm_tokenizer (Optional[Dictionary]): Tokenizer for LSTM model.
+        lstm (Optional[RNNModel]): LSTM language model.
+    """
+
+    ft_lm_model: GPT2LMHeadModel = None
+    ngram_lm: kenlm.LanguageModel = None
+    lstm_tokenizer: Dictionary = None
+    lstm: RNNModel = None
 
 
 class DataPool:
@@ -47,10 +66,7 @@ class DataPool:
         self.asr_model = None
         self.asr_tokenizer = None
         self.start_tokens = None
-        self.ft_lm_model = None
-        self.ngram_lm = None
-        self.lstm_tokenizer = None
-        self.lstm = None
+        self.lm_models = LMModels()
 
     def get_asr_model(self) -> None:
         """
@@ -105,13 +121,13 @@ class DataPool:
         Retrieves and initializes GPT-2, N-gram, and LSTM language models.
         """
         ft_lm_model = GPT2LMHeadModel.from_pretrained(self.cfg.gpt2.dir_model)
-        self.ft_lm_model = ft_lm_model.to(self.cfg.root_params.device)
+        self.lm_models.ft_lm_model = ft_lm_model.to(self.cfg.root_params.device)
 
-        self.ngram_lm = kenlm.LanguageModel(self.cfg.kenlm.model)
+        self.lm_models.ngram_lm = kenlm.LanguageModel(self.cfg.kenlm.model)
 
         with open(self.cfg.lstm.tokenizer_path, "rb") as file:
-            self.lstm_tokenizer = pickle.load(file)
-        self.lstm = self.get_lstm(self.cfg.lstm)
+            self.lm_models.lstm_tokenizer = pickle.load(file)
+        self.lm_models.lstm = self.get_lstm(self.cfg.lstm)
 
     @staticmethod
     def get_lstm(cfg: DictConfig) -> RNNModel:

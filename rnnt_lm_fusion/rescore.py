@@ -59,8 +59,8 @@ class Rescore:
             "ilme": self.cfg.rescore.methods.ilme,
         }
         self.device = self.cfg.root_params.device
-        self.bos_token_id = self.data_pool.ft_lm_model.config.bos_token_id
-        self.eos_token_id = self.data_pool.ft_lm_model.config.eos_token_id
+        self.bos_token_id = self.data_pool.lm_models.ft_lm_model.config.bos_token_id
+        self.eos_token_id = self.data_pool.lm_models.ft_lm_model.config.eos_token_id
 
     def eval_rnnt(self, audio_dataloader: DataLoader) -> RescoreOutput:
         """Evaluate the RNN-T model and perform rescoring using the provided audio dataloader.
@@ -333,7 +333,7 @@ class Rescore:
         with torch.inference_mode():
             with torch.cuda.amp.autocast():
                 for sentence in input_ids:
-                    outputs = self.data_pool.ft_lm_model(
+                    outputs = self.data_pool.lm_models.ft_lm_model(
                         input_ids=sentence, labels=sentence
                     )
                     neg_log_likelihoods.append(
@@ -365,7 +365,9 @@ class Rescore:
 
         for tokenized_sentence in tokenized_text:
             sentence = " ".join(tokenized_sentence)
-            sentence_score = self.data_pool.ngram_lm.score(sentence) * math.log(10)
+            sentence_score = self.data_pool.lm_models.ngram_lm.score(
+                sentence
+            ) * math.log(10)
             scores.append(sentence_score)
 
         return np.array(scores), np.array(tokens_num)
@@ -390,7 +392,7 @@ class Rescore:
         ilstm_tokens_num = []
         for line in data_source:
             line = lstm_tokenize_str(
-                self.data_pool.lstm_tokenizer, "<bos> " + line + " <eos>"
+                self.data_pool.lm_models.lstm_tokenizer, "<bos> " + line + " <eos>"
             )
             ilstm_tokens_num.append(len(line))
             tokenized_text.append(
@@ -403,9 +405,9 @@ class Rescore:
         with torch.inference_mode():
             with torch.cuda.amp.autocast():
                 for src in tokenized_text:
-                    hidden = self.data_pool.lstm.init_hidden(1)
+                    hidden = self.data_pool.lm_models.lstm.init_hidden(1)
                     hidden = [item.to(self.device) for item in hidden]
-                    log_probs, hidden = self.data_pool.lstm(src, hidden)
+                    log_probs, hidden = self.data_pool.lm_models.lstm(src, hidden)
                     log_gen_probs = (
                         torch.gather(log_probs[:-1, :], 1, src[1:, :])
                         .squeeze(-1)

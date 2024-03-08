@@ -1,0 +1,8 @@
+version: '3.4'
+
+services:
+  languagemodelfusion:
+    image: languagemodelfusion:1.0.0
+    build:
+      context: .
+      dockerfile: ./Dockerfile
