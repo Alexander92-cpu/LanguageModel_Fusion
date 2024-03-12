@@ -1,3 +1,4 @@
+IMAGE_NAME=languagemodelfusion:1.0.0
 CONTAINER_NAME=lm_fusion_container
 
 .PHONY: create-container-k2complex
@@ -9,7 +10,7 @@ create-container-k2complex:
 	--gpus '"device=0"' \
 	-it \
 	-v ${PWD}/conf:/app/conf:ro \
-	languagemodelfusion:1.0.0 bash
+	$(IMAGE_NAME) bash
 
 .PHONY: run-k2complex
 run-k2complex:
