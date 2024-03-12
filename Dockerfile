@@ -37,6 +37,7 @@ FROM python:3.10-slim-bookworm
 ENV WORKDIR_BASIC=/app
 ENV VIRTUAL_ENV=$WORKDIR_BASIC/venv
 ENV PROJECT_NAME=rnnt_lm_fusion
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 LABEL org.opencontainers.image.source=https://github.com/Alexander92-cpu/LanguageModel_Fusion
 LABEL org.opencontainers.image.description="RNN-T Language Model Fusion"
@@ -50,7 +51,7 @@ COPY --from=big_python $WORKDIR_BASIC/kenlm kenlm
 # COPY --from=cuda_libraries /usr/local/cuda-12 /usr/local/cuda-12
 # COPY --from=cuda_libraries /usr/local/cuda-12.2 /usr/local/cuda-12.2
 
-# ENV PATH="/usr/local/cuda/bin:$VIRTUAL_ENV/bin:$PATH"
+# ENV PATH="/usr/local/cuda/bin:$PATH"
 # ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 
 # # Creates a non-root user with an explicit UID and adds permission to access the /app folder
