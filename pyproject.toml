@@ -17,20 +17,21 @@ classifiers = [
 ]
 
 dependencies = [
-      "huggingface-hub==0.20.3",
-      "hydra-core==1.3.2",
+      "huggingface-hub",
+      "hydra-core",
       "kenlm @ https://github.com/kpu/kenlm/archive/master.zip",
-      "nemo-toolkit[all]==1.22.0",
-      "optuna==3.5.0",
-      "sentencepiece==0.2.0",
-      "torch==2.2.1",
-      "torchaudio==2.2.1",
-      "torchvision==0.17.1",
-      "transformers[torch]==4.38.1"
+      "nemo-toolkit[all]",
+      "optuna",
+      "sentencepiece",
+      "torch",
+      "torchaudio",
+      "torchvision",
+      "transformers[torch]"
 ]
 
 [project.optional-dependencies]
 test = [
+    "pylint[spelling]",
     "pytest",
     "tox",
     "pytest-cov",
