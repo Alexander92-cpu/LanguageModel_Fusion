@@ -29,7 +29,7 @@ RUN python -m build
 RUN pip install --find-links=dist $PROJECT_NAME[test]
 
 # Stage 2: Get CUDA
-FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04 as cuda_libraries
+# FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04 as cuda_libraries
 
 # Stage 3: Create the final image
 FROM python:3.10-slim-bookworm
@@ -46,9 +46,9 @@ WORKDIR $WORKDIR_BASIC
 
 COPY --from=big_python $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=big_python $WORKDIR_BASIC/kenlm kenlm
-COPY --from=cuda_libraries /usr/local/cuda /usr/local/cuda
-COPY --from=cuda_libraries /usr/local/cuda-12 /usr/local/cuda-12
-COPY --from=cuda_libraries /usr/local/cuda-12.2 /usr/local/cuda-12.2
+# COPY --from=cuda_libraries /usr/local/cuda /usr/local/cuda
+# COPY --from=cuda_libraries /usr/local/cuda-12 /usr/local/cuda-12
+# COPY --from=cuda_libraries /usr/local/cuda-12.2 /usr/local/cuda-12.2
 
 # ENV PATH="/usr/local/cuda/bin:$VIRTUAL_ENV/bin:$PATH"
 # ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH

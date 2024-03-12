@@ -9,7 +9,6 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  PROJECT_IN_DOCKER: /app
 
 jobs:
   build:
@@ -51,7 +50,6 @@ jobs:
         run: |
             sudo rm -rf /opt/ghc
             sudo rm -rf "/usr/local/share/boost"
-            sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
       # Install the cosign tool except on PR
       # https://github.com/sigstore/cosign-installer
@@ -100,15 +98,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Run pylint inside the Docker container
-      - name: Run pylint
+      # Run the Docker container test
+      - name: Test container
         run: |
-          docker run --rm -v .:${{ env.PROJECT_IN_DOCKER }} ${{ steps.meta.outputs.tags }} pylint *.py */*.py
-
-      # Run pytest inside the Docker container
-      - name: Run pytest
-        run: |
-          docker run --rm -v .:${{ env.PROJECT_IN_DOCKER }} ${{ steps.meta.outputs.tags }} pytest
+          docker run --rm  ${{ steps.lower_repo.outputs.lowercase }}:test
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
