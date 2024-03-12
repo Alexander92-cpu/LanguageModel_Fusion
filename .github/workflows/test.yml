@@ -1,0 +1,28 @@
+name: Test Project in Docker Container
+
+on:
+    workflow_run:
+      workflows: [Docker Image CI]
+      types:
+        - completed
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+        image: ghcr.io/alexander92-cpu/languagemodel_fusion:main
+        credentials:
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+        volumes:
+            - ${{ github.workspace }}
+    steps: 
+        - name: Checkout repository
+          uses: actions/checkout@v4
+        - name: List directory content
+          run: ls -l
+        - name: Analysing the code with pylint
+          run: |
+            pylint --fail-under=9.0 $(ls */*.py *.py)
+        - name: Run pytest
+          run: pytest --cov=rnnt_lm_fusion --cov=tests
