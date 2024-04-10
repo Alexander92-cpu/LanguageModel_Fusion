@@ -8,7 +8,7 @@ ENV VIRTUAL_ENV=$WORKDIR_BASIC/venv
 ENV PROJECT_NAME=rnnt_lm_fusion
 
 RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash
-RUN apt-get update && apt-get install -y  cmake git git-lfs libsndfile1 ffmpeg \
+RUN apt-get update && apt-get install -y cmake git git-lfs libsndfile1 ffmpeg \
     build-essential libboost-system-dev libboost-thread-dev libboost-program-options-dev \
     libboost-test-dev libboost-filesystem-dev
 
@@ -50,6 +50,8 @@ COPY --from=big_python $WORKDIR_BASIC/kenlm kenlm
 # COPY --from=cuda_libraries /usr/local/cuda /usr/local/cuda
 # COPY --from=cuda_libraries /usr/local/cuda-12 /usr/local/cuda-12
 # COPY --from=cuda_libraries /usr/local/cuda-12.2 /usr/local/cuda-12.2
+
+RUN apt-get update && apt-get install -y cmake git git-lfs
 
 # ENV PATH="/usr/local/cuda/bin:$PATH"
 # ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
