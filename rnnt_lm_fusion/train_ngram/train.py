@@ -34,13 +34,13 @@ USAGE: python train_kenlm.py --nemo_model_file <path to the .nemo file of the mo
                              --ngram_length <order of N-gram model>
 """
 
+from pathlib import Path
 import logging
 import os
 import subprocess
 import sys
 
 import nemo.collections.asr as nemo_asr
-import torch
 from omegaconf import DictConfig
 
 from .utils import TokenizeConfig, read_train_file, tokenize_text
@@ -67,22 +67,19 @@ class Ngram:
         self.cfg = cfg.kenlm
         self.train_file = cfg.kenlm.train_file
         self.nemo_model_file = cfg.asr_model.model
+        self.nemo_model_name = cfg.asr_model.model_name
         self.kenlm_model_file = cfg.kenlm.model
         self.ngram_length = cfg.kenlm.ngram
         self.kenlm_bin_path = cfg.kenlm.kenlm_bin_path
 
         logging.info("Loading nemo model %s ...", self.nemo_model_file)
-        if self.nemo_model_file.endswith(".nemo"):
-            self.tokenizer = nemo_asr.models.ASRModel.restore_from(
-                self.nemo_model_file, map_location=torch.device("cpu")
+        if Path(self.nemo_model_file).exists():
+            self.tokenizer = nemo_asr.models.EncDecRNNTBPEModel.restore_from(
+                self.nemo_model_file, map_location="cpu"
             ).tokenizer
         else:
-            logging.warning(
-                """nemo_model_file does not end with .nemo, therefore trying to load
-                a pretrained model with this name."""
-            )
-            self.tokenizer = nemo_asr.models.ASRModel.from_pretrained(
-                self.nemo_model_file, map_location=torch.device("cpu")
+            self.tokenizer = nemo_asr.models.EncDecRNNTBPEModel.from_pretrained(
+                model_name=self.nemo_model_name, map_location="cpu"
             ).tokenizer
 
     def train(self):

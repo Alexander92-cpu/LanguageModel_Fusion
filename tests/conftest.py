@@ -5,7 +5,6 @@ License: Apache 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
 """
 
 from pathlib import Path
-import shutil
 
 from datasets import load_dataset
 import hydra
@@ -44,13 +43,6 @@ def workflow(tmp_path_factory) -> Workflow:
     set_seed(cfg.root_params.seed)
 
     wf = Workflow(cfg)
-
-    wf.download_data()
-
-    delete_dirs = {"gtp2", "kenlm", "lstm", "optimize"}
-    for dir_path in Path(cfg.root_params.data_dir).glob('*'):
-        if dir_path.stem in delete_dirs:
-            shutil.rmtree(dir_path)
 
     wf.cfg.librispeech = {
         "train": {"clean": "test"},

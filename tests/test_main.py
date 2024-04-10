@@ -106,9 +106,10 @@ class TestTrain:
         """
         workflow.cfg.gpt2.per_device_train_batch_size = 2
         workflow.train_gpt2()
-        assert (Path(workflow.cfg.gpt2.dir_model) / "pytorch_model.bin").exists()
+        assert (Path(workflow.cfg.gpt2.dir_model) / "model.safetensors").exists()
         assert (Path(workflow.cfg.gpt2.dir_model) / "training_args.bin").exists()
         assert (Path(workflow.cfg.gpt2.dir_model) / "config.json").exists()
+        assert (Path(workflow.cfg.gpt2.dir_model) / "generation_config.json").exists()
 
     @pytest.mark.run(order=5)
     @pytest.mark.depends(on=["test_gpt2_training"])

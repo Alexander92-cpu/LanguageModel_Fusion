@@ -56,9 +56,14 @@ class LMPool:
         """
         Sets the ASR tokenizer and related token IDs.
         """
-        asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(
-            self.cfg.asr_model.model, map_location="cpu"
-        )
+        if Path(self.cfg.asr_model.model).exists():
+            asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(
+                self.cfg.asr_model.model, map_location="cpu"
+            )
+        else:
+            asr_model = nemo_asr.models.EncDecRNNTBPEModel.from_pretrained(
+                model_name=self.cfg.asr_model.model_name, map_location="cpu"
+            )
         self.asr_tokenizer = asr_model.tokenizer.tokenizer
         self.bos_token_id = len(self.asr_tokenizer)
         self.eos_token_id = len(self.asr_tokenizer) + 1

@@ -72,9 +72,14 @@ class DataPool:
         """
         Retrieves the ASR model and sets up decoding strategy.
         """
-        asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(
-            self.cfg.asr_model.model, map_location=self.cfg.root_params.device
-        )
+        if Path(self.cfg.asr_model.model).exists():
+            asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(
+                self.cfg.asr_model.model, map_location=self.cfg.root_params.device
+            )
+        else:
+            asr_model = nemo_asr.models.EncDecRNNTBPEModel.from_pretrained(
+                model_name=self.cfg.asr_model.model_name, map_location=self.cfg.root_params.device
+            )
         asr_model.freeze()
         decoding_config = copy.deepcopy(asr_model.cfg.decoding)
         decoding_config.strategy = self.cfg.asr_model.strategy
@@ -105,9 +110,14 @@ class DataPool:
         """
         Retrieves the ASR tokenizer.
         """
-        asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(
-            self.cfg.asr_model.model, map_location=self.cfg.root_params.device
-        )
+        if Path(self.cfg.asr_model.model).exists():
+            asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(
+                self.cfg.asr_model.model, map_location=self.cfg.root_params.device
+            )
+        else:
+            asr_model = nemo_asr.models.EncDecRNNTBPEModel.from_pretrained(
+                model_name=self.cfg.asr_model.model_name, map_location=self.cfg.root_params.device
+            )
         self.asr_tokenizer = asr_model.tokenizer
         start_token = self.cfg.tokenizer.start_token
         self.start_tokens = {
@@ -140,9 +150,11 @@ class DataPool:
         Returns:
             RNNModel: Initialized LSTM model.
         """
+        chkp = torch.load(cfg.save, map_location=cfg.device)
+        ntoken = chkp['encoder.weight'].size(0)
         config = RNNModelConfig(
             rnn_type=cfg.model_type,
-            ntoken=cfg.num_words,
+            ntoken=ntoken,
             ninp=cfg.emsize,
             nhid=cfg.nhid,
             nlayers=cfg.nlayers,
@@ -150,7 +162,7 @@ class DataPool:
             tie_weights=cfg.tied,
         )
         model = RNNModel(config)
-        model.load_state_dict(torch.load(cfg.save, map_location=cfg.device))
+        model.load_state_dict(chkp)
         model.rnn.flatten_parameters()
         model = model.to(cfg.device)
         model.eval()

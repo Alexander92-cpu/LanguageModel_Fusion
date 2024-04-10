@@ -62,7 +62,6 @@ lstm:
   dropout: 0.2
   tied: True
   words_limit: 70000
-  num_words: 70003
   cuda: true
   device: ${root_params.device}
   mps: false
@@ -73,13 +72,13 @@ lstm:
   bptt: 35
   seed: ${root_params.seed}
   log_interval: 200
-  onnx_export: ''
   nhead: 2
   dry_run: false
   clip: 0.25
   temperature: 1.0
 
 asr_model:
+  model_name: stt_en_conformer_transducer_small
   model: ${root_params.data_dir}/asr/stt_en_conformer_transducer_small.nemo
   strategy: beam
   beam_size: 16

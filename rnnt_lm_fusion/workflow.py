@@ -116,10 +116,10 @@ class Workflow:
         def build_data(lm_dir_data: str, suffix: str) -> Dict[str, str]:
             target_dataset = load_dataset("librispeech_asr", suffix)
             paths_to_data = {}
+            Path(Path(lm_dir_data)).mkdir(exist_ok=True, parents=True)
             for key in target_dataset:
                 paths_to_data[key] = f"{lm_dir_data}/{suffix}_{key}.txt"
                 if not Path(paths_to_data[key]).exists():
-                    Path(paths_to_data[key]).mkdir(exist_ok=True, parents=True)
                     with open(paths_to_data[key], "wt", encoding="utf-8") as fo:
                         for line in target_dataset[key]["text"]:
                             fo.write(line.lower() + "\n")
@@ -154,6 +154,7 @@ class Workflow:
         different sources specified in the configuration. It then trains the LSTM
         model using the prepared data.
         """
+        Path(Path(self.cfg.lstm.dir_lstm_data)).mkdir(parents=True, exist_ok=True)
         for key, text_dataset in self.datasets.items():
             data_path = Path(self.cfg.lstm.dir_lstm_data) / (key + ".txt")
             if not data_path.exists():
@@ -173,6 +174,7 @@ class Workflow:
             self.datasets["train"].raw_text + self.datasets["validation"].raw_text
         )
         if not os.path.isfile(self.cfg.kenlm.train_file):
+            Path(Path(self.cfg.kenlm.train_file).parent).mkdir(parents=True, exist_ok=True)
             with open(self.cfg.kenlm.train_file, "wt", encoding="utf-8") as fo:
                 for line in raw_text:
                     fo.write(line + "\n")
