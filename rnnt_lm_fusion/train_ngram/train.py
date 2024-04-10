@@ -73,17 +73,17 @@ class Ngram:
 
         logging.info("Loading nemo model %s ...", self.nemo_model_file)
         if self.nemo_model_file.endswith(".nemo"):
-            self.model = nemo_asr.models.ASRModel.restore_from(
+            self.tokenizer = nemo_asr.models.ASRModel.restore_from(
                 self.nemo_model_file, map_location=torch.device("cpu")
-            )
+            ).tokenizer
         else:
             logging.warning(
                 """nemo_model_file does not end with .nemo, therefore trying to load
                 a pretrained model with this name."""
             )
-            self.model = nemo_asr.models.ASRModel.from_pretrained(
+            self.tokenizer = nemo_asr.models.ASRModel.from_pretrained(
                 self.nemo_model_file, map_location=torch.device("cpu")
-            )
+            ).tokenizer
 
     def train(self):
         """DATASET SETUP"""
@@ -97,10 +97,7 @@ class Ngram:
             token_offset=TOKEN_OFFSET,
         )
         tokenize_text(
-            dataset,
-            self.model.tokenizer,
-            path=encoded_train_file,
-            config=tokenizer_config,
+            dataset, self.tokenizer, path=encoded_train_file, config=tokenizer_config,
         )
         # --discount_fallback is needed for training KenLM for BPE-based models
         discount_arg = "--discount_fallback"

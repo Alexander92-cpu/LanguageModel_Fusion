@@ -150,7 +150,7 @@ class DataPool:
             tie_weights=cfg.tied,
         )
         model = RNNModel(config)
-        model.load_state_dict(torch.load(cfg.save))
+        model.load_state_dict(torch.load(cfg.save, map_location=cfg.device))
         model.rnn.flatten_parameters()
         model = model.to(cfg.device)
         model.eval()
@@ -332,11 +332,7 @@ class AudioDataset(Dataset):
                                 to the audio data.
     """
 
-    def __init__(
-        self,
-        audio: List[torch.tensor],
-        references: List[str],
-    ) -> None:
+    def __init__(self, audio: List[torch.tensor], references: List[str],) -> None:
         self.audio = audio
         self.references = references
 

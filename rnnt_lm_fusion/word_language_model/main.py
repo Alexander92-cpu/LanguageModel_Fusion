@@ -78,6 +78,8 @@ class WLM:
         # Load data
         ###############################################################################
 
+        lstm_data = Path(self.cfg.tokenizer_path).parent
+        lstm_data.mkdir(parents=True, exist_ok=True)
         self.corpus = Corpus(self.cfg.dir_lstm_data, self.cfg.words_limit)
 
         if not Path(self.cfg.tokenizer_path).exists():

@@ -75,9 +75,16 @@ class Rescore:
             RescoreOutput: Rescore output containing evaluation results.
         """
         info = defaultdict(list)
-        for batch in tqdm(
-            audio_dataloader, leave=True, desc="Decoding", total=len(audio_dataloader)
+        for idx, batch in enumerate(
+            tqdm(
+                audio_dataloader,
+                leave=True,
+                desc="Decoding",
+                total=len(audio_dataloader),
+            )
         ):
+            if self.cfg.rescore.num_steps > 0 and idx == self.cfg.rescore.num_steps:
+                break
             self.process_batch(batch, info)
         info["references"] = [item for batch in info["references"] for item in batch]
         if self.cfg.rescore.calculate_wer:
@@ -206,8 +213,7 @@ class Rescore:
             rescore = scores["asr_scores"].copy()
             if key != "baseline" and use_method:
                 rescore = self.rescore_with_method(scores, key, rescore)
-                st_rescore = rescore.index(max(rescore))
-                best_hypothesis = nbests[unique_idx[st_rescore]]
+                best_hypothesis = nbests[unique_idx[np.argmax(rescore)]]
             elif key == "baseline":
                 best_hypothesis = nbests[0]
             else:
@@ -282,10 +288,8 @@ class Rescore:
                 encoded, encoded_len = self.data_pool.asr_model.forward(
                     input_signal=input_signal, input_signal_length=input_signal_length
                 )
-                current_hypotheses = (
-                    self.data_pool.asr_model.decoding.rnnt_decoder_predictions_tensor(
-                        encoded, encoded_len, return_hypotheses=True
-                    )
+                current_hypotheses = self.data_pool.asr_model.decoding.rnnt_decoder_predictions_tensor(
+                    encoded, encoded_len, return_hypotheses=True
                 )
                 _, all_hypotheses = current_hypotheses
                 all_hypotheses_zero = [[] for _ in range(input_signal_length.size(0))]

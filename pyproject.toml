@@ -35,7 +35,8 @@ test = [
     "pytest",
     "tox",
     "pytest-cov",
-    "pytest-ordering"
+    "pytest-ordering",
+    "pytest-depends"
 ]
 
 [tool.setuptools.packages.find]

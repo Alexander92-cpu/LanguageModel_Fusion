@@ -8,6 +8,7 @@ Author: Alexandru Mazurenco (2024)
 License: Apache 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
 """
 
+from pathlib import Path
 from typing import Dict, List
 
 import optuna
@@ -48,9 +49,11 @@ class Optimizator:
                 for score_param, score_values in batch["scores"].items():
                     for idx, score_value in enumerate(score_values):
                         dict_batch[idx][score_param] = score_value
-                for idx, tokens_num_value in enumerate(batch["utexts"]):
+                if isinstance(batch["reference"], str):
+                    batch["reference"] = [batch["reference"]] * len(batch["utexts"])
+                for idx, (tokens_num_value, reference) in enumerate(zip(batch["utexts"], batch["reference"])):
                     dict_batch[idx]["transcription"] = tokens_num_value
-                    dict_batch[idx]["reference"] = batch["reference"]
+                    dict_batch[idx]["reference"] = reference
                 self.data.append(list(dict_batch.values()))
 
     def optimize(self) -> None:
@@ -61,6 +64,8 @@ class Optimizator:
 
         for study_name, values in self.cfg.rescore.params.items():
             if values:
+                db_dir = Path(self.cfg.optimize.db_exp).parent
+                db_dir.mkdir(parents=True, exist_ok=True)
                 storage_path = f"sqlite:///{self.cfg.optimize.db_exp}"
                 sampler = optuna.samplers.TPESampler(multivariate=True, group=True)
                 study = optuna.create_study(
@@ -125,7 +130,7 @@ def get_best_hyperparams(
             scores.append(rescore)
         st_rescore = scores.index(max(scores))
         transcriptions.append(nbests[st_rescore]["transcription"])
-        references.append(nbests[0]["reference"])
+        references.append(nbests[st_rescore]["reference"])
     wer = Rescore.calculate_wer(transcriptions, references)
     if wer is None:
         wer = 100.0

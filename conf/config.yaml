@@ -1,13 +1,19 @@
 root_params:
   seed: 42
   log_dir: ???
-  device: cuda
+  device: cpu
   data_dir: data
+  dataset: librispeech
   eval_do_lowercase: true
   data_url: https://huggingface.co/AlexanderMaz/LanguageModel_Fusion
 
+librispeech:
+  "train": {"other": "train.500", "clean": "train.360"}
+  "validation": {"other": "validation", "clean": "validation"}
+  "test": {"other": "test", "clean": "test"}
+
 lm:
-  dir_data: data/text/librispeech
+  dir_data: ${root_params.data_dir}/text/librispeech
   block_size: 512
 
 tokenizer:
@@ -81,6 +87,7 @@ asr_model:
 
 rescore:
   calculate_wer: true
+  num_steps: 0 # < 1 to disable
   methods:
     baseline: true
     lodr: true
@@ -106,8 +113,8 @@ rescore:
       num_tokens: 1.8
 
 optimize:
-  db_exp: data/optimize/exp.db
-  optimize_data_file: data/optimize/data_all.pkl
+  db_exp: ${root_params.data_dir}/optimize/exp.db
+  optimize_data_file: ${root_params.data_dir}/optimize/data_all.pkl
   load_if_exists: true
   n_trials: 2000
   n_jobs: 1

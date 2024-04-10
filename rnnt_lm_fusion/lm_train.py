@@ -56,9 +56,8 @@ class LMPool:
         """
         Sets the ASR tokenizer and related token IDs.
         """
-        device = self.cfg.root_params.device
         asr_model = nemo_asr.models.EncDecRNNTBPEModel.restore_from(
-            self.cfg.asr_model.model, map_location=device
+            self.cfg.asr_model.model, map_location="cpu"
         )
         self.asr_tokenizer = asr_model.tokenizer.tokenizer
         self.bos_token_id = len(self.asr_tokenizer)
@@ -175,7 +174,9 @@ class LMPool:
         Args:
             model_dir_save (Path): Directory containing the saved model.
         """
-        self.fusion_lm_model = GPT2LMHeadModel.from_pretrained(model_dir_save)
+        self.fusion_lm_model = GPT2LMHeadModel.from_pretrained(
+            model_dir_save, device_map=self.cfg.root_params.device
+        )
 
     def train_ngram(self) -> None:
         """
